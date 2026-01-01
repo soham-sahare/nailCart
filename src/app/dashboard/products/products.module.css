@@ -1,7 +1,8 @@
+/* Inherit global glass class in component */
 .container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
   padding-top: 1rem;
 }
 
@@ -21,11 +22,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-radius: var(--radius);
+  padding: 1.25rem;
+  border-radius: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
   flex-wrap: wrap;
   gap: 1rem;
-  /* Glass effect via class in utility */
 }
 
 .searchGroup {

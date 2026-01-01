@@ -31,7 +31,7 @@ export default function SignupPage() {
         throw new Error(data.message || 'Something went wrong');
       }
 
-      router.push('/login?registered=true');
+      router.push('/admin/login?registered=true');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -80,7 +80,7 @@ export default function SignupPage() {
         </form>
 
         <p className={styles.footer}>
-          Already have an account? <Link href="/login">Log In</Link>
+          Already have an account? <Link href="/admin/login">Log In</Link>
         </p>
       </div>
     </div>

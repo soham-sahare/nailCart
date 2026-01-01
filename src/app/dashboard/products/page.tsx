@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiMoreVertical, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import CustomDropdown from '@/components/ui/CustomDropdown';
+import { useToast } from '@/components/ui/Toast';
 import styles from './products.module.css';
 
 interface Category {
@@ -27,8 +29,10 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   
+  // Toast
+  const { showToast } = useToast();
+
   // For Modal Dropdown
   const [categories, setCategories] = useState<Category[]>([]);
 
@@ -122,6 +126,10 @@ export default function ProductsPage() {
     e.preventDefault();
     setError('');
 
+    // Capture values before async/reset
+    const productName = formData.name;
+    const isEdit = !!editingProduct;
+
     try {
       const payload = {
         sku: formData.sku,
@@ -155,25 +163,46 @@ export default function ProductsPage() {
 
       handleCloseModal();
       fetchProducts();
+
+      if (isEdit) {
+        showToast('success', 'Product Updated', `Product "${productName}" has been updated.`);
+      } else {
+        showToast('success', 'Product Created', `Product "${productName}" has been created.`);
+      }
     } catch (err: any) {
       setError(err.message);
+      showToast('error', 'Error', err.message);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+  const handleDeleteClick = (id: string) => {
+    setDeleteId(id);
+    // Potentially open a confirmation modal here if not using browser's confirm
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+
+    const productToDelete = products.find(p => p._id === deleteId);
+    const productName = productToDelete?.name || 'Product';
 
     try {
-      const res = await fetch(`/api/products/${id}`, {
+      const res = await fetch(`/api/products/${deleteId}`, {
         method: 'DELETE',
       });
       
       if (res.ok) {
-        setOpenDropdownId(null);
+        handleCloseModal(); // Ensure modal (if any) closes
         fetchProducts();
+        showToast('success', 'Product Deleted', `Product "${productName}" has been deleted.`);
+      } else {
+        showToast('error', 'Error', 'Failed to delete product');
       }
     } catch (err) {
       console.error(err);
+      showToast('error', 'Error', 'An unexpected error occurred');
+    } finally {
+      if (!isModalOpen) setDeleteId(null);
     }
   };
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
+import { usePathname } from 'next/navigation';
 
 interface Particle {
   x: number;
@@ -14,6 +15,12 @@ interface Particle {
 const NetBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
+  const pathname = usePathname();
+
+  // Do not render on protected/dashboard pages
+  if (pathname?.startsWith('/dashboard')) {
+    return null;
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current;

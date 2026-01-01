@@ -1,4 +1,4 @@
-import Sidebar from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
 import styles from './layout.module.css';
 
 export default function DashboardLayout({
@@ -8,9 +8,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className={styles.container}>
-      <aside className={styles.sidebar}>
-        <Sidebar />
-      </aside>
+      <TopBar />
       <main className={styles.main}>
         {children}
       </main>
