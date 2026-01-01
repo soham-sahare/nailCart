@@ -122,21 +122,50 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+/* Action Buttons */
+.actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
 .actionBtn {
-  padding: 0.5rem;
-  border-radius: 50%;
-  color: var(--foreground);
-  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  cursor: pointer;
   background: transparent;
-  opacity: 0.7;
 }
 
-.actionBtn:hover {
-  background: var(--surface-hover);
-  opacity: 1;
+.btnView {
+  color: #3b82f6; /* Blue */
+  background: rgba(59, 130, 246, 0.1);
+}
+.btnView:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateY(-2px);
+}
+
+.btnEdit {
+  color: #10b981; /* Green */
+  background: rgba(16, 185, 129, 0.1);
+}
+.btnEdit:hover {
+  background: rgba(16, 185, 129, 0.2);
+  transform: translateY(-2px);
+}
+
+.btnDelete {
+  color: #ef4444; /* Red */
+  background: rgba(239, 68, 68, 0.1);
+}
+.btnDelete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
 }
 
 .pagination {

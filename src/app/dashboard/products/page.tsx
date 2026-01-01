@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiEye } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import { useToast } from '@/components/ui/Toast';
 import styles from './products.module.css';
@@ -39,6 +39,7 @@ export default function ProductsPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     sku: '',
     name: '',
@@ -50,22 +51,8 @@ export default function ProductsPage() {
   });
   const [error, setError] = useState('');
 
-  // Dropdown & Delete State
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  // Delete State
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-          if (openDropdownId && !(event.target as Element).closest(`.${styles.dropdown}`)) {
-              setOpenDropdownId(null);
-          }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-          document.removeEventListener('mousedown', handleClickOutside);
-      };
-  }, [openDropdownId]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -122,12 +109,17 @@ export default function ProductsPage() {
     }
     setError('');
     setIsModalOpen(true);
-    setOpenDropdownId(null);
+  };
+
+  const handleViewProduct = (product: Product) => {
+    setViewingProduct(product);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingProduct(null);
+    setViewingProduct(null);
+    setDeleteId(null);
     setFormData({
         sku: '',
         name: '',
@@ -194,7 +186,6 @@ export default function ProductsPage() {
 
   const handleDeleteClick = (id: string) => {
     setDeleteId(id);
-    // Potentially open a confirmation modal here if not using browser's confirm
   };
 
   const confirmDelete = async () => {
@@ -299,35 +290,30 @@ export default function ProductsPage() {
                     </span>
                   </td>
                   <td>
-                    <div className={styles.dropdown}>
+                    <div className={styles.actions}>
                       <button 
-                        className={styles.actionBtn}
-                        onClick={() => setOpenDropdownId(openDropdownId === prod._id ? null : prod._id)}
+                        className={`${styles.actionBtn} ${styles.btnView}`}
+                        onClick={() => handleViewProduct(prod)}
+                        title="View Details"
                       >
-                        <FiMoreVertical />
+                        <FiEye size={16} />
                       </button>
-                      
-                      {openDropdownId === prod._id && (
-                        <div className={styles.dropdownMenu}>
-                          <button 
-                            className={styles.dropdownItem}
-                            onClick={() => handleOpenModal(prod)}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <FiEdit2 size={14} /> Edit
-                            </div>
-                          </button>
-                          <button 
-                            className={styles.dropdownItem} 
-                            style={{ color: '#ef4444' }}
-                            onClick={() => handleDeleteClick(prod._id)}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <FiTrash2 size={14} /> Delete
-                            </div>
-                          </button>
-                        </div>
-                      )}
+
+                      <button 
+                        className={`${styles.actionBtn} ${styles.btnEdit}`}
+                        onClick={() => handleOpenModal(prod)}
+                        title="Edit"
+                      >
+                        <FiEdit2 size={16} />
+                      </button>
+
+                      <button 
+                        className={`${styles.actionBtn} ${styles.btnDelete}`}
+                        onClick={() => handleDeleteClick(prod._id)}
+                        title="Delete"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -482,6 +468,96 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+
+      {/* View Details Modal */}
+      {viewingProduct && (
+        <div className={styles.modalOverlay}>
+          <div className={`${styles.modal} glass`}>
+            <div className={styles.modalHeader}>
+              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                Product Details
+              </h2>
+              <button className={styles.closeBtn} onClick={handleCloseModal}>
+                <FiX />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>SKU</span>
+                    <span>{viewingProduct.sku}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>Name</span>
+                    <span>{viewingProduct.name}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>Category</span>
+                    <span>{viewingProduct.category?.name || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>Cost Price</span>
+                    <span>${viewingProduct.costPrice}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>Selling Price</span>
+                    <span>${viewingProduct.sellingPrice}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>Quantity</span>
+                    <span>{viewingProduct.quantity}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>Status</span>
+                    <span className={viewingProduct.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>{viewingProduct.status}</span>
+                </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button className={styles.btnCancel} onClick={handleCloseModal}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteId && (
+        <div className={styles.modalOverlay}>
+          <div className={`${styles.modal} glass`} style={{ maxWidth: '400px' }}>
+            <div className={styles.modalHeader}>
+              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                Delete Product?
+              </h2>
+              <button className={styles.closeBtn} onClick={handleCloseModal}>
+                <FiX />
+              </button>
+            </div>
+            
+            <p style={{ color: 'var(--foreground)', marginBottom: '2rem', lineHeight: '1.6', fontSize: '1.1rem' }}>
+              Are you sure you want to delete <strong style={{ textDecoration: 'underline', textDecorationColor: 'var(--primary)', textUnderlineOffset: '4px' }}>{products.find(p => p._id === deleteId)?.name || 'this product'}</strong>?
+            </p>
+
+            <div className={styles.modalActions}>
+              <button 
+                className={styles.btnCancel} 
+                onClick={handleCloseModal}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary" 
+                style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1.5rem' }}
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
