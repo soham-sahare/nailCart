@@ -50,6 +50,23 @@ export default function ProductsPage() {
   });
   const [error, setError] = useState('');
 
+  // Dropdown & Delete State
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+          if (openDropdownId && !(event.target as Element).closest(`.${styles.dropdown}`)) {
+              setOpenDropdownId(null);
+          }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+          document.removeEventListener('mousedown', handleClickOutside);
+      };
+  }, [openDropdownId]);
+
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -210,18 +227,11 @@ export default function ProductsPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Products</h1>
-        <button 
-          className="btn-primary" 
-          onClick={() => handleOpenModal()}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <FiPlus /> Add Product
-        </button>
       </div>
 
-      <div className={styles.controls}>
+      <div className={`${styles.controls} glass`}>
         <div className={styles.searchGroup}>
-          <FiSearch color="#888" />
+          <FiSearch color="#888" size={20} />
           <input
             type="text"
             placeholder="Search products (Name or SKU)..."
@@ -231,17 +241,27 @@ export default function ProductsPage() {
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.875rem', color: '#666' }}>Records per page:</span>
-            <select 
-                className={styles.limitSelect}
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-            >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-            </select>
+        <div className={styles.controlActions}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.875rem', color: '#666' }}>Show:</span>
+              <select 
+                  className={styles.limitSelect}
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value))}
+              >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+              </select>
+          </div>
+
+          <button 
+            className="btn-primary" 
+            onClick={() => handleOpenModal()}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
+          >
+            <FiPlus /> Add Product
+          </button>
         </div>
       </div>
 
@@ -300,7 +320,7 @@ export default function ProductsPage() {
                           <button 
                             className={styles.dropdownItem} 
                             style={{ color: '#ef4444' }}
-                            onClick={() => handleDelete(prod._id)}
+                            onClick={() => handleDeleteClick(prod._id)}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <FiTrash2 size={14} /> Delete

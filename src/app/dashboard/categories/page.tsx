@@ -151,13 +151,6 @@ export default function CategoriesPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Categories</h1>
-        <button 
-          className="btn-primary" 
-          onClick={() => handleOpenModal()}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <FiPlus /> Add Category
-        </button>
       </div>
 
       <div className={`${styles.controls} glass`}>
@@ -172,19 +165,29 @@ export default function CategoriesPage() {
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '140px' }}>
-          <span style={{ fontSize: '0.9rem', color: '#666' }}>Show:</span>
-          <div style={{ flexGrow: 1 }}>
-            <CustomDropdown 
-              options={[
-                { value: '5', label: '5' },
-                { value: '10', label: '10' },
-                { value: '20', label: '20' }
-              ]}
-              value={String(limit)}
-              onChange={(val) => setLimit(Number(val))}
-            />
+        <div className={styles.controlActions}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '140px' }}>
+            <span style={{ fontSize: '0.9rem', color: '#666' }}>Show:</span>
+            <div style={{ width: '80px' }}>
+              <CustomDropdown 
+                options={[
+                  { value: '5', label: '5' },
+                  { value: '10', label: '10' },
+                  { value: '20', label: '20' }
+                ]}
+                value={String(limit)}
+                onChange={(val) => setLimit(Number(val))}
+              />
+            </div>
           </div>
+
+          <button 
+            className="btn-primary" 
+            onClick={() => handleOpenModal()}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
+          >
+            <FiPlus /> Add Category
+          </button>
         </div>
       </div>
 

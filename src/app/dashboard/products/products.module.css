@@ -20,14 +20,19 @@
 
 .controls {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1.25rem;
+  padding: 1rem 1.5rem;
   border-radius: 1.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.5rem;
+}
+
+.controlActions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-shrink: 0;
 }
 
 .searchGroup {
@@ -39,6 +44,22 @@
 
 .searchInput {
   max-width: 300px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  border-radius: 0;
+  font-size: 1rem;
+  color: var(--foreground);
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  transition: all 0.2s;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-bottom-color: var(--primary);
+  background: transparent;
+  box-shadow: none;
 }
 
 .limitSelect {
