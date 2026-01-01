@@ -228,10 +228,25 @@
 }
 
 .closeBtn {
-  background: transparent;
-  font-size: 1.5rem;
+  background: rgba(255, 255, 255, 0.05); /* Subtle background */
+  border: 1px solid var(--border); /* Custom thin border matching theme */
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
   color: var(--foreground);
-  opacity: 0.6;
+  opacity: 0.7;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.closeBtn:hover {
+  opacity: 1;
+  background: var(--surface-hover);
+  transform: rotate(90deg); /* Playful interaction */
 }
 
 .closeBtn:hover {
@@ -301,4 +316,31 @@
     .formGrid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Detail View Styles */
+.detailRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.detailRow:last-child {
+  border-bottom: none;
+}
+.detailLabel {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #888;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.detailValue {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--foreground);
 }

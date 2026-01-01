@@ -235,15 +235,17 @@ export default function ProductsPage() {
         <div className={styles.controlActions}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontSize: '0.875rem', color: '#666' }}>Show:</span>
-              <select 
-                  className={styles.limitSelect}
-                  value={limit}
-                  onChange={(e) => setLimit(Number(e.target.value))}
-              >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-              </select>
+              <div style={{ width: '80px' }}>
+                  <CustomDropdown 
+                      options={[
+                          { value: '5', label: '5' },
+                          { value: '10', label: '10' },
+                          { value: '20', label: '20' }
+                      ]}
+                      value={String(limit)}
+                      onChange={(val) => setLimit(Number(val))}
+                  />
+              </div>
           </div>
 
           <button 
@@ -267,7 +269,7 @@ export default function ProductsPage() {
               <th>Selling Price</th>
               <th>Qty</th>
               <th>Status</th>
-              <th>Action</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -281,8 +283,8 @@ export default function ProductsPage() {
                   <td>{prod.sku}</td>
                   <td>{prod.name}</td>
                   <td>{prod.category?.name || 'N/A'}</td>
-                  <td>${prod.costPrice}</td>
-                  <td>${prod.sellingPrice}</td>
+                  <td>₹{prod.costPrice}</td>
+                  <td>₹{prod.sellingPrice}</td>
                   <td>{prod.quantity}</td>
                   <td>
                     <span className={prod.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>
@@ -390,17 +392,17 @@ export default function ProductsPage() {
 
                 <div>
                   <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Category</label>
-                  <select
-                    className="input-field"
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    required
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                        <option key={cat._id} value={cat._id}>{cat.name}</option>
-                    ))}
-                  </select>
+                  <div style={{ width: '100%' }}>
+                    <CustomDropdown
+                        options={[
+                            { value: '', label: 'Select Category' },
+                            ...categories.map((cat) => ({ value: cat._id, label: cat.name }))
+                        ]}
+                        value={formData.categoryId}
+                        onChange={(val) => setFormData({ ...formData, categoryId: val })}
+                        searchable={true}
+                    />
+                  </div>
                 </div>
 
                 <div className={styles.formGrid}>
@@ -444,14 +446,16 @@ export default function ProductsPage() {
                     </div>
                     <div>
                         <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Status</label>
-                        <select
-                            className="input-field"
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
-                        >
-                            <option value="ACTIVE">ACTIVE</option>
-                            <option value="INACTIVE">INACTIVE</option>
-                        </select>
+                        <div style={{ width: '100%' }}>
+                            <CustomDropdown
+                                options={[
+                                    { value: 'ACTIVE', label: 'ACTIVE' },
+                                    { value: 'INACTIVE', label: 'INACTIVE' }
+                                ]}
+                                value={formData.status}
+                                onChange={(val) => setFormData({ ...formData, status: val as 'ACTIVE' | 'INACTIVE' })}
+                            />
+                        </div>
                     </div>
                 </div>
               </div>
@@ -482,34 +486,42 @@ export default function ProductsPage() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ color: '#888', fontWeight: 600 }}>SKU</span>
-                    <span>{viewingProduct.sku}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>SKU</span>
+                    <span className={styles.detailValue}>{viewingProduct.sku}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ color: '#888', fontWeight: 600 }}>Name</span>
-                    <span>{viewingProduct.name}</span>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Name</span>
+                    <span className={styles.detailValue}>{viewingProduct.name}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ color: '#888', fontWeight: 600 }}>Category</span>
-                    <span>{viewingProduct.category?.name || 'N/A'}</span>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Category</span>
+                    <span className={styles.detailValue}>{viewingProduct.category?.name || 'N/A'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ color: '#888', fontWeight: 600 }}>Cost Price</span>
-                    <span>${viewingProduct.costPrice}</span>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Cost Price</span>
+                    <span className={styles.detailValue}>₹{viewingProduct.costPrice}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ color: '#888', fontWeight: 600 }}>Selling Price</span>
-                    <span>${viewingProduct.sellingPrice}</span>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Selling Price</span>
+                    <span className={styles.detailValue}>₹{viewingProduct.sellingPrice}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ color: '#888', fontWeight: 600 }}>Quantity</span>
-                    <span>{viewingProduct.quantity}</span>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Quantity</span>
+                    <span className={styles.detailValue}>{viewingProduct.quantity}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ color: '#888', fontWeight: 600 }}>Status</span>
-                    <span className={viewingProduct.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>{viewingProduct.status}</span>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Status</span>
+                    <div style={{ marginTop: '0.25rem' }}>
+                        <span className={viewingProduct.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>
+                            {viewingProduct.status}
+                        </span>
+                    </div>
+                </div>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Product ID</span>
+                    <span className={styles.detailValue} style={{ fontSize: '0.9rem', fontFamily: 'monospace' }}>{viewingProduct._id}</span>
                 </div>
             </div>
 
