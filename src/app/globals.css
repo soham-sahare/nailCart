@@ -149,3 +149,25 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(38, 35, 34, 0.1);
   border-radius: 3px;
 }
+
+@media print {
+  @page {
+    margin: 0mm;
+    size: auto;
+  }
+  header, nav, aside, canvas {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+}

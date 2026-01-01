@@ -5,6 +5,7 @@ import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiEye, FiMinus } from 'react-
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import { useToast } from '@/components/ui/Toast';
 import styles from './sales.module.css';
+import { formatDateIST } from '@/lib/dateUtils';
 
 interface OrderItem {
   productName: string;
@@ -54,6 +55,9 @@ export default function SalesPage() {
     totalAmount: 0 // Will auto calc
   });
   const [error, setError] = useState('');
+
+  // WhatsApp State
+  const [sendWhatsapp, setSendWhatsapp] = useState(false);
 
   // Delete State
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -112,8 +116,9 @@ export default function SalesPage() {
         mobileNumber: '',
         items: [{ productName: '', quantity: 1, price: 0 }],
         discount: 0,
-        totalAmount: 0
+        totalAmount: 0 // Will auto calc
       });
+      setSendWhatsapp(false);
     }
     setError('');
     setIsModalOpen(true);
@@ -167,6 +172,32 @@ export default function SalesPage() {
       setFormData({ ...formData, items: newItems });
   }
 
+  const generateWhatsappMessage = (order: Order) => {
+      let message = `*BILL INVOICE* 🧾\n\n`;
+      message += `*Sale ID:* ${order.orderId}\n`;
+      message += `*Date:* ${new Date().toLocaleDateString()}\n`;
+      message += `*Customer:* ${order.customerName}\n\n`;
+      message += `*Items:*\n`;
+      
+      order.items.forEach(item => {
+          message += `• ${item.productName} (x${item.quantity}) - ₹${item.price * item.quantity}\n`;
+      });
+      
+      message += `\n*Subtotal:* ₹${order.totalAmount + (order.discount || 0)}\n`;
+      if (order.discount > 0) {
+          message += `*Discount:* -₹${order.discount}\n`;
+      }
+      message += `*TOTAL AMOUNT:* ₹${order.totalAmount}\n\n`;
+      
+      // Add Invoice Link
+      const invoiceUrl = `${window.location.origin}/dashboard/sales/invoice/${order._id}`;
+      message += `📄 *View Invoice:* ${invoiceUrl}\n\n`;
+
+      message += `Thank you for shopping with us! ✨`;
+      
+      return encodeURIComponent(message);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -193,8 +224,19 @@ export default function SalesPage() {
       handleCloseModal();
       fetchOrders();
 
+      const savedOrder = data.data; // API returns { success: true, data: order }
+
+      if (sendWhatsapp && savedOrder && savedOrder.mobileNumber) {
+          const message = generateWhatsappMessage(savedOrder);
+          const url = `https://wa.me/91${savedOrder.mobileNumber}?text=${message}`; // Assuming India +91, can be dynamic later
+          window.open(url, '_blank');
+      } else if (savedOrder) {
+          // If WhatsApp is NOT checked, open the invoice immediately
+          window.open(`/dashboard/sales/invoice/${savedOrder._id}`, '_blank');
+      }
+
       showToast('success', editingOrder ? 'Sale Updated' : 'Sale Created', 
-        editingOrder ? `Sale ${editingOrder.orderId} updated.` : 'New sale has been created.');
+        editingOrder ? `Sale ${savedOrder.orderId} updated successfully.` : `New sale ${savedOrder.orderId} created successfully.`);
 
     } catch (err: any) {
       setError(err.message);
@@ -209,6 +251,9 @@ export default function SalesPage() {
   const confirmDelete = async () => {
     if (!deleteId) return;
 
+    const orderToDelete = orders.find(o => o._id === deleteId);
+    const orderId = orderToDelete?.orderId || 'Unknown';
+
     try {
       const res = await fetch(`/api/sales/${deleteId}`, {
         method: 'DELETE',
@@ -217,7 +262,7 @@ export default function SalesPage() {
       if (res.ok) {
         handleCloseModal();
         fetchOrders();
-        showToast('success', 'Sale Deleted', 'Sale has been deleted successfully.');
+        showToast('success', 'Sale Deleted', `Sale ${orderId} has been deleted.`);
       } else {
         showToast('error', 'Error', 'Failed to delete sale');
       }
@@ -299,7 +344,22 @@ export default function SalesPage() {
             ) : (
               orders.map((order) => (
                 <tr key={order._id}>
-                  <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{order.orderId}</td>
+                  <td>
+                      <a 
+                        href={`/dashboard/sales/invoice/${order._id}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{ 
+                            fontFamily: 'monospace', 
+                            fontWeight: 600, 
+                            color: 'var(--primary)', 
+                            textDecoration: 'underline',
+                            cursor: 'pointer' 
+                        }}
+                      >
+                        {order.orderId}
+                      </a>
+                  </td>
                   <td>{order.customerName}</td>
                   <td style={{ fontFamily: 'monospace' }}>{order.mobileNumber}</td>
                   <td>₹{order.totalAmount}</td>
@@ -549,6 +609,19 @@ export default function SalesPage() {
               </div>
 
               <div className={styles.modalActions}>
+                <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input 
+                        type="checkbox" 
+                        id="whatsappDetails" 
+                        checked={sendWhatsapp}
+                        onChange={(e) => setSendWhatsapp(e.target.checked)}
+                        style={{ width: '1.2rem', height: '1.2rem', accentColor: '#25D366', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="whatsappDetails" style={{ cursor: 'pointer', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        Send Bill on WhatsApp <span style={{fontSize: '1.2rem'}}>📱</span>  
+                    </label>
+                </div>
+
                 <button type="button" className={styles.btnCancel} onClick={handleCloseModal}>
                   Cancel
                 </button>
@@ -589,7 +662,7 @@ export default function SalesPage() {
                 </div>
                 <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Date</span>
-                    <span className={styles.detailValue}>{new Date(viewingOrder.createdAt).toLocaleDateString()}</span>
+                    <span className={styles.detailValue}>{formatDateIST(viewingOrder.createdAt)}</span>
                 </div>
 
                 <div style={{ marginTop: '1rem' }}>
