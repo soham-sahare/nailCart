@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { FiHome, FiBox, FiGrid, FiLogOut } from 'react-icons/fi';
+import { FiHome, FiBox, FiGrid, FiLogOut, FiShoppingCart } from 'react-icons/fi';
 import ThemeToggle from './ThemeToggle';
 import styles from './TopBar.module.css';
 
@@ -16,6 +16,7 @@ export default function TopBar() {
     { name: 'Dashboard', href: '/dashboard', icon: FiHome },
     { name: 'Categories', href: '/dashboard/categories', icon: FiGrid },
     { name: 'Products', href: '/dashboard/products', icon: FiBox },
+    { name: 'Sales', href: '/dashboard/sales', icon: FiShoppingCart },
   ];
 
   return (

@@ -40,7 +40,7 @@
   top: calc(100% + 0.5rem);
   left: 0;
   right: 0;
-  background: var(--surface);
+  background: #111; /* More Solid Background for visibility */
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 1rem;
