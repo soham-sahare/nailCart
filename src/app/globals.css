@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light Mode - Reference "Beauty App" Palette */
+  --primary: #FC6BBA; /* Bright Pink from reference */
+  --primary-hover: #e04a9f;
+  --secondary: #262322; /* Dark soft black from reference */
+  
+  --background: #FEFDFD; /* Soft Off-White from reference */
+  --foreground: #000000; /* Dark text */
+  
+  --surface: rgba(255, 255, 255, 0.7); /* Frosted glass */
+  --surface-hover: rgba(255, 255, 255, 0.9);
+  
+  --border: rgba(38, 35, 34, 0.1);
+  
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shine: rgba(255, 255, 255, 0.8);
+  
+  --radius: 2rem; /* Soft roundness from reference */
+  --shadow: 0 10px 40px -10px rgba(252, 107, 186, 0.15);
+}
+
+.dark {
+  /* Dark Mode - Adapted Reference Palette */
+  --primary: #FC6BBA; 
+  --primary-hover: #ff85c6;
+  --secondary: #ffffff;
+  
+  --background: #000000; /* Darker version of #262322 */
+  --foreground: #FEFDFD;
+  
+  --surface: rgba(38, 35, 34, 0.6);
+  --surface-hover: rgba(38, 35, 34, 0.8);
+  
+  --border: rgba(255, 255, 255, 0.1);
+  
+  --glass-bg: rgba(0, 0, 0, 0.3);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shine: rgba(255, 255, 255, 0.05);
+  
+  --shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background); /* Canvas will sit on top of this color layer */
+  position: relative;
+  overflow-x: hidden;
+  font-family: 'Montserrat', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 
+  The background animation is now handled by the <NetBackground /> canvas component.
+  We keep the basic body structure clean.
+*/
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes pulse-glow {
+  0% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.05); }
+  100% { opacity: 0.2; transform: scale(1); }
+}
+
+/* Reference Glass UI */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+  border-top: 1px solid var(--glass-shine);
+}
+
+/* High Contrast Button (Dark Button from Reference) */
+.btn-primary {
+  background: var(--secondary); /* Dark Button */
+  color: var(--background); /* Light Text */
+  padding: 1rem 2.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: none;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  opacity: 0.9;
+}
+
+/* Inputs */
+.input-field {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  border-radius: 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  color: var(--foreground);
+  transition: all 0.3s;
+  font-family: inherit;
+}
+
+.input-field:focus {
+  background: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(252, 107, 186, 0.1);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+.gradient-text {
+  /* Solid dark for reference style or subtle gradient */
+  color: var(--foreground); 
+  background: none;
+  -webkit-text-fill-color: initial;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(38, 35, 34, 0.1);
+  border-radius: 3px;
+}

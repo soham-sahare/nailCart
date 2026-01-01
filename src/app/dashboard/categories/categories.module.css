@@ -1,0 +1,239 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: 1rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Inherit global glass class in component */
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.searchGroup {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-grow: 1;
+}
+
+.searchInput {
+  max-width: 300px;
+  /* global .input-field handles style */
+}
+
+.limitSelect {
+  padding: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+}
+
+.tableContainer {
+  border-radius: var(--radius);
+  overflow: hidden;
+  /* Glass effect applied via class */
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table th, .table td {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  background: var(--surface-hover);
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.statusActive {
+  background: rgba(34, 197, 94, 0.2);
+  color: #15803d;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.statusInactive {
+  background: rgba(239, 68, 68, 0.2);
+  color: #b91c1c;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.actionBtn {
+  padding: 0.5rem;
+  border-radius: 50%;
+  color: var(--foreground);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  opacity: 0.7;
+}
+
+.actionBtn:hover {
+  background: var(--surface-hover);
+  opacity: 1;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pageBtn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all 0.2s;
+}
+
+.pageBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageBtn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 10px rgba(236, 72, 153, 0.3);
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+.modal {
+  /* Glass effect applied via class */
+  border-radius: 2rem;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 500px;
+  border: 1px solid var(--glass-border);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.closeBtn {
+  background: transparent;
+  font-size: 1.5rem;
+  color: var(--foreground);
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.closeBtn:hover {
+  opacity: 1;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+.btnCancel {
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btnCancel:hover {
+  background: var(--surface-hover);
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdownMenu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+  z-index: 10;
+  min-width: 140px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  background: transparent;
+  transition: background 0.2s;
+  font-size: 0.9rem;
+}
+
+.dropdownItem:hover {
+  background: var(--surface-hover);
+}
