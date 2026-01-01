@@ -79,6 +79,7 @@
 .tableContainer {
   border-radius: 1.5rem;
   overflow: hidden;
+  overflow-x: auto; /* Enable horizontal scrolling */
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: 0 4px 20px rgba(0,0,0,0.02);

@@ -189,8 +189,9 @@ export default function SalesPage() {
       }
       message += `*TOTAL AMOUNT:* ₹${order.totalAmount}\n\n`;
       
-      // Add Invoice Link
-      const invoiceUrl = `${window.location.origin}/dashboard/sales/invoice/${order._id}`;
+      
+      // Add Invoice Link (Public)
+      const invoiceUrl = `${window.location.origin}/invoice/${order._id}`;
       message += `📄 *View Invoice:* ${invoiceUrl}\n\n`;
 
       message += `Thank you for shopping with us! ✨`;
@@ -232,7 +233,7 @@ export default function SalesPage() {
           window.open(url, '_blank');
       } else if (savedOrder) {
           // If WhatsApp is NOT checked, open the invoice immediately
-          window.open(`/dashboard/sales/invoice/${savedOrder._id}`, '_blank');
+          window.open(`/invoice/${savedOrder._id}`, '_blank');
       }
 
       showToast('success', editingOrder ? 'Sale Updated' : 'Sale Created', 
@@ -346,7 +347,7 @@ export default function SalesPage() {
                 <tr key={order._id}>
                   <td>
                       <a 
-                        href={`/dashboard/sales/invoice/${order._id}`} 
+                        href={`/invoice/${order._id}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         style={{ 

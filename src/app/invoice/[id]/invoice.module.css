@@ -179,3 +179,28 @@
         max-width: none;
     }
 }
+
+@media (max-width: 600px) {
+    .container {
+        padding: 1.5rem 1rem;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .ownerInfo {
+        text-align: left;
+    }
+
+    .table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .totalsBox {
+        width: 100%;
+    }
+}

@@ -17,12 +17,10 @@ const NetBackground = () => {
   const { theme } = useTheme();
   const pathname = usePathname();
 
-  // Do not render on protected/dashboard pages
-  if (pathname?.startsWith('/dashboard')) {
-    return null;
-  }
-
   useEffect(() => {
+    // Skip animation if on dashboard (canvas won't be rendered)
+    if (pathname?.startsWith('/dashboard')) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -107,7 +105,12 @@ const NetBackground = () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [theme]);
+  }, [theme, pathname]);
+
+  // Do not render on protected/dashboard pages
+  if (pathname?.startsWith('/dashboard')) {
+    return null;
+  }
 
   // Fixed position background
   return (

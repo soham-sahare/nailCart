@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { FiPrinter } from 'react-icons/fi';
@@ -28,29 +28,27 @@ export default function InvoicePage() {
   const { id } = useParams();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchOrder = async () => {
+      if (!id) {
+        setLoading(false);
+        setError('Invoice ID is missing.');
+        return;
+      }
       try {
-        const res = await fetch(`/api/sales?search=${id}`); // Reusing search to find by ID if direct fetch is tricky, or just filter match
-        // Actually best to fetch all and find, or ideally have a single get endpoint.
-        // Let's assume we can fetch list and filter since I don't have a direct single-fetch public endpoint doc handy,
-        // Wait, I edited /api/sales/[id] earlier! I can use that.
-        const resSingle = await fetch(`/api/sales/${id}`); // Assuming this is GET compatible? 
-        // Wait, route.ts only had PUT/DELETE. I need to add GET to [id]/route.ts or just use the list.
-        // Quickest path given I shouldn't edit backend needlessly: Fetch list and filter.
-        // Actually, let's just make a quick GET in [id]/route.ts, it's safer.
-        // Or for now, just fetch list with search param if search works on ID.
-        // My search logic: `or: [{ orderId: regex }, { customerName: regex }]`.
-        // So I can search by ID.
-        
         // Let's try fetching the specific one via list for safety first.
         const resList = await fetch('/api/sales?limit=1000'); 
         const data = await resList.json();
         const found = data.data.find((o: any) => o._id === id);
         setOrder(found || null);
+        if (!found) {
+          setError('Invoice not found.');
+        }
       } catch (err) {
         console.error(err);
+        setError('Failed to fetch invoice.');
       } finally {
         setLoading(false);
       }
