@@ -29,6 +29,11 @@ const OrderSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  courierFees: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   totalAmount: {
     type: Number,
     required: true,
@@ -36,7 +41,7 @@ const OrderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['COMPLETED', 'RETURNED', 'CANCELLED'],
+    enum: ['COMPLETED', 'RETURNED', 'CANCELLED', 'REFUNDED'],
     default: 'COMPLETED',
   },
   type: {

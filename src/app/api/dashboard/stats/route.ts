@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
 import Category from '@/models/Category';
+import Expense from '@/models/Expense';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,6 +129,16 @@ let cache = {
         }
       }
     ]);
+
+    // Expense Stats
+    const [expenseStats] = await Expense.aggregate([
+      {
+         $match: { date: { $gte: startDate } }
+      },
+      {
+         $group: { _id: null, total: { $sum: '$amount' } }
+      }
+    ]) || [{ total: 0 }]; // Fallback if no expenses
     
     // --- Post-Processing ---
 
@@ -227,6 +238,14 @@ let cache = {
         }
     });
     
+    const totalExpenses = expenseStats?.total || 0;
+    
+    // Calculate Gross Profit from SalesTrend Map
+    let totalGrossProfit = 0;
+    Object.values(salesMap).forEach(v => totalGrossProfit += v.profit);
+    
+    const netProfit = totalGrossProfit - totalExpenses;
+
     const responseData = {
         metrics: {
             totalOrders: metrics.totalOrders,
@@ -234,7 +253,10 @@ let cache = {
             inventoryValue: invValue,
             lowStockCount: lowCount,
             averageOrderValue: metrics.totalOrders > 0 ? Math.round(metrics.totalRevenue / metrics.totalOrders) : 0,
-            dailyAverage
+            dailyAverage,
+            totalExpenses,
+            netProfit,
+            grossProfit: totalGrossProfit // Explicitly send gross profit too
         },
         salesTrend: formattedTrend,
         categoryDistribution,

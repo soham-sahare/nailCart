@@ -1,198 +1,163 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiEye } from 'react-icons/fi';
+import { FiPlus } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
+import SearchInput from '@/components/ui/SearchInput';
+import ActionButtons from '@/components/ui/ActionButtons';
+import StatusBadge from '@/components/ui/StatusBadge';
+import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './products.module.css';
 
-interface Category {
-  _id: string;
-  name: string;
-}
-
 interface Product {
   _id: string;
-  sku: string;
   name: string;
-  category: Category;
+  sku: string;
+  category: { _id: string, name: string } | null;
   costPrice: number;
   sellingPrice: number;
   quantity: number;
   status: 'ACTIVE' | 'INACTIVE';
+  description?: string;
+  mrp?: number;
 }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   
-  // Toast
-  const { showToast } = useToast();
-
-  // For Modal Dropdown
-  const [categories, setCategories] = useState<Category[]>([]);
-
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  
   const [formData, setFormData] = useState({
-    sku: '',
     name: '',
+    sku: '',
     categoryId: '',
     costPrice: '',
     sellingPrice: '',
+    mrp: '',
     quantity: '',
-    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
+    description: '',
+    status: 'ACTIVE'
   });
-  const [error, setError] = useState('');
 
-  // Delete State
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, [search, limit, page]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/products?search=${search}&page=${page}&limit=${limit}`);
+      const res = await fetch(`/api/products?search=${search}&limit=${limit}&page=${page}`);
       const data = await res.json();
-      setProducts(data.data);
-      setTotalPages(data.pagination.pages);
+      if (data.success) {
+          setProducts(data.data);
+          setTotalPages(data.pagination ? data.pagination.pages : 1);
+      }
     } catch (err) {
       console.error(err);
+      showToast('error', 'Error', 'Failed to fetch products');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchCategories = async () => {
-      try {
-          const res = await fetch('/api/categories?limit=100&status=ACTIVE'); // Fetch enough active categories
-          const data = await res.json();
-          setCategories(data.data);
-      } catch (err) {
-          console.error("Failed to load categories for dropdown");
-      }
-  }
-
-  useEffect(() => {
-    fetchProducts();
-  }, [search, page, limit]);
+    try {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      if (data.success) setCategories(data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleOpenModal = (product?: Product) => {
-    fetchCategories(); // Ensure categories are loaded
     if (product) {
       setEditingProduct(product);
       setFormData({
-        sku: product.sku,
         name: product.name,
+        sku: product.sku,
         categoryId: product.category?._id || '',
-        costPrice: product.costPrice.toString(),
-        sellingPrice: product.sellingPrice.toString(),
-        quantity: product.quantity.toString(),
-        status: product.status
+        costPrice: String(product.costPrice),
+        sellingPrice: String(product.sellingPrice),
+        mrp: product.mrp ? String(product.mrp) : '',
+        quantity: String(product.quantity),
+        description: product.description || '',
+        status: product.status as any
       });
     } else {
       setEditingProduct(null);
       setFormData({
-        sku: '',
         name: '',
+        sku: '',
         categoryId: '',
         costPrice: '',
         sellingPrice: '',
+        mrp: '',
         quantity: '',
+        description: '',
         status: 'ACTIVE'
       });
     }
-    setError('');
     setIsModalOpen(true);
-  };
-
-  const handleViewProduct = (product: Product) => {
-    setViewingProduct(product);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setEditingProduct(null);
     setViewingProduct(null);
     setDeleteId(null);
-    setFormData({
-        sku: '',
-        name: '',
-        categoryId: '',
-        costPrice: '',
-        sellingPrice: '',
-        quantity: '',
-        status: 'ACTIVE'
-    });
+  }
+
+  const handleDeleteClick = (id: string, name: string) => {
+      setDeleteId(id);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    // Capture values before async/reset
-    const productName = formData.name;
-    const isEdit = !!editingProduct;
-
     try {
-      const payload = {
-        sku: formData.sku,
-        name: formData.name,
-        category: formData.categoryId,
-        costPrice: Number(formData.costPrice),
-        sellingPrice: Number(formData.sellingPrice),
-        quantity: Number(formData.quantity),
-        status: formData.status
-      };
-
-      const url = editingProduct 
-        ? `/api/products/${editingProduct._id}` 
-        : '/api/products';
-      
+      const url = editingProduct ? `/api/products/${editingProduct._id}` : '/api/products';
       const method = editingProduct ? 'PUT' : 'POST';
-
+      
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+             ...formData,
+             category: formData.categoryId, // Map ID to expected schema field
+             mrp: formData.mrp === '' ? undefined : formData.mrp // Send undefined if empty to skip validation/casting issues
+        })
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Something went wrong');
-      }
-
-      handleCloseModal();
-      fetchProducts();
-
-      if (isEdit) {
-        showToast('success', 'Product Updated', `Product "${productName}" has been updated.`);
+      
+      if (res.ok) {
+        showToast('success', 'Success', editingProduct ? 'Product updated' : 'Product created');
+        handleCloseModal();
+        fetchProducts();
       } else {
-        showToast('success', 'Product Created', `Product "${productName}" has been created.`);
+        showToast('error', 'Error', 'Failed to save product');
       }
-    } catch (err: any) {
-      setError(err.message);
-      showToast('error', 'Error', err.message);
+    } catch (err) {
+      console.error(err);
+      showToast('error', 'Error', 'An unexpected error occurred');
     }
-  };
-
-  const handleDeleteClick = (id: string) => {
-    setDeleteId(id);
   };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
-
-    const productToDelete = products.find(p => p._id === deleteId);
-    const productName = productToDelete?.name || 'Product';
+    const productName = products.find(p => p._id === deleteId)?.name;
 
     try {
       const res = await fetch(`/api/products/${deleteId}`, {
@@ -200,7 +165,7 @@ export default function ProductsPage() {
       });
       
       if (res.ok) {
-        handleCloseModal(); // Ensure modal (if any) closes
+        handleCloseModal(); 
         fetchProducts();
         showToast('success', 'Product Deleted', `Product "${productName}" has been deleted.`);
       } else {
@@ -220,356 +185,261 @@ export default function ProductsPage() {
         <h1 className={styles.title}>Products</h1>
       </div>
 
-      <div className={`${styles.controls} glass`}>
-        <div className={styles.searchGroup}>
-          <FiSearch color="#888" size={20} />
-          <input
-            type="text"
-            placeholder="Search products (Name or SKU)..."
-            className={`input-field ${styles.searchInput}`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+      <div>
+        <div className={`${styles.controls} glass`}>
+          <SearchInput 
+            value={search} 
+            onChange={setSearch} 
+            placeholder="Search products (Name or SKU)..." 
           />
-        </div>
 
-        <div className={styles.controlActions}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666' }}>Show:</span>
-              <div style={{ width: '80px' }}>
-                  <CustomDropdown 
-                      options={[
-                          { value: '5', label: '5' },
-                          { value: '10', label: '10' },
-                          { value: '20', label: '20' }
-                      ]}
-                      value={String(limit)}
-                      onChange={(val) => setLimit(Number(val))}
-                  />
-              </div>
-          </div>
-
-          <button 
-            className="btn-primary" 
-            onClick={() => handleOpenModal()}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
-          >
-            <FiPlus /> Add Product
-          </button>
-        </div>
-      </div>
-
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Cost Price</th>
-              <th>Selling Price</th>
-              <th>Qty</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center' }}>Loading...</td></tr>
-            ) : products.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center' }}>No products found</td></tr>
-            ) : (
-              products.map((prod) => (
-                <tr key={prod._id}>
-                  <td>{prod.sku}</td>
-                  <td>{prod.name}</td>
-                  <td>{prod.category?.name || 'N/A'}</td>
-                  <td>₹{prod.costPrice}</td>
-                  <td>₹{prod.sellingPrice}</td>
-                  <td>{prod.quantity}</td>
-                  <td>
-                    <span className={prod.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>
-                      {prod.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className={styles.actions}>
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnView}`}
-                        onClick={() => handleViewProduct(prod)}
-                        title="View Details"
-                      >
-                        <FiEye size={16} />
-                      </button>
-
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnEdit}`}
-                        onClick={() => handleOpenModal(prod)}
-                        title="Edit"
-                      >
-                        <FiEdit2 size={16} />
-                      </button>
-
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnDelete}`}
-                        onClick={() => handleDeleteClick(prod._id)}
-                        title="Delete"
-                      >
-                        <FiTrash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className={styles.pagination}>
-        <button 
-          className={styles.pageBtn} 
-          disabled={page === 1}
-          onClick={() => setPage(page - 1)}
-        >
-          Prev
-        </button>
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-          <button
-            key={p}
-            className={`${styles.pageBtn} ${page === p ? styles.active : ''}`}
-            onClick={() => setPage(p)}
-          >
-            {p}
-          </button>
-        ))}
-        <button 
-          className={styles.pageBtn}
-          disabled={page === totalPages}
-          onClick={() => setPage(page + 1)}
-        >
-          Next
-        </button>
-      </div>
-
-      {isModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem' }}>
-                {editingProduct ? 'Edit Product' : 'Add Product'}
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
+          <div className={styles.controlActions}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '0.9rem', color: '#666' }}>Show:</span>
+                <div style={{ width: '80px' }}>
+                    <CustomDropdown 
+                        options={[
+                            { value: '5', label: '5' },
+                            { value: '10', label: '10' },
+                            { value: '20', label: '20' }
+                        ]}
+                        value={String(limit)}
+                        onChange={(val) => setLimit(Number(val))}
+                    />
+                </div>
             </div>
 
-            {error && <div className={styles.error} style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
-
-            <form onSubmit={handleSubmit}>
-              <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-                <div className={styles.formGrid}>
-                    <div>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>SKU</label>
-                        <input
-                            type="text"
-                            className="input-field"
-                            value={formData.sku}
-                            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Product Name</label>
-                        <input
-                            type="text"
-                            className="input-field"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            required
-                        />
-                    </div>
-                </div>
-
-                <div>
-                  <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Category</label>
-                  <div style={{ width: '100%' }}>
-                    <CustomDropdown
-                        options={[
-                            { value: '', label: 'Select Category' },
-                            ...categories.map((cat) => ({ value: cat._id, label: cat.name }))
-                        ]}
-                        value={formData.categoryId}
-                        onChange={(val) => setFormData({ ...formData, categoryId: val })}
-                        searchable={true}
-                    />
-                  </div>
-                </div>
-
-                <div className={styles.formGrid}>
-                    <div>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Cost Price</label>
-                        <input
-                            type="number"
-                            className="input-field"
-                            value={formData.costPrice}
-                            onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-                            required
-                            min="0"
-                            step="0.01"
-                        />
-                    </div>
-                    <div>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Selling Price</label>
-                        <input
-                            type="number"
-                            className="input-field"
-                            value={formData.sellingPrice}
-                            onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
-                            required
-                            min="0"
-                            step="0.01"
-                        />
-                    </div>
-                </div>
-
-                <div className={styles.formGrid}>
-                    <div>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Quantity</label>
-                        <input
-                            type="number"
-                            className="input-field"
-                            value={formData.quantity}
-                            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                            required
-                            min="0"
-                        />
-                    </div>
-                    <div>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Status</label>
-                        <div style={{ width: '100%' }}>
-                            <CustomDropdown
-                                options={[
-                                    { value: 'ACTIVE', label: 'ACTIVE' },
-                                    { value: 'INACTIVE', label: 'INACTIVE' }
-                                ]}
-                                value={formData.status}
-                                onChange={(val) => setFormData({ ...formData, status: val as 'ACTIVE' | 'INACTIVE' })}
-                            />
-                        </div>
-                    </div>
-                </div>
-              </div>
-
-              <div className={styles.modalActions}>
-                <button type="button" className={styles.btnCancel} onClick={handleCloseModal}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  {editingProduct ? 'Update' : 'Save'}
-                </button>
-              </div>
-            </form>
+            <button 
+              className="btn-primary" 
+              onClick={() => handleOpenModal()}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
+            >
+              <FiPlus /> Add Product
+            </button>
           </div>
         </div>
-      )}
+
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Cost Price</th>
+                <th>Selling Price</th>
+                <th>Qty</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
+              ) : products.length === 0 ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>No products found</td></tr>
+              ) : (
+                products.map((product) => (
+                  <tr key={product._id}>
+                    <td>{product.sku}</td>
+                    <td style={{ fontWeight: 500 }}>{product.name}</td>
+                    <td>{product.category?.name || '-'}</td>
+                    <td>₹{product.costPrice}</td>
+                    <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                             {product.mrp && <div style={{ fontSize: '0.85rem', color: '#888', textDecoration: 'line-through' }}>₹{product.mrp}</div>}
+                             <div style={{ fontWeight: 600 }}>₹{product.sellingPrice}</div>
+                        </div>
+                    </td>
+                    <td>{product.quantity}</td>
+                    <td>
+                      <StatusBadge status={product.status} />
+                    </td>
+                    <td>
+                      <ActionButtons 
+                          onView={() => setViewingProduct(product)}
+                          onEdit={() => handleOpenModal(product)}
+                          onDelete={() => handleDeleteClick(product._id, product.name)}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        <Pagination 
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+        />
+      </div>
+
+      {/* Add/Edit Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        title={editingProduct ? 'Edit Product' : 'Add Product'}
+        width="600px"
+      >
+        <form onSubmit={handleSubmit}>
+          <div className={styles.formGrid}>
+            <div className={styles.formGroup}>
+              <label>Product Name</label>
+              <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="input-field" placeholder="e.g. Gel Polish Red" />
+            </div>
+            <div className={styles.formGroup}>
+              <label>SKU</label>
+              <input type="text" required value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="input-field" placeholder="e.g. GEL-RED-01" />
+            </div>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label>Category</label>
+            <div className={styles.selectWrapper}>
+                <CustomDropdown 
+                    options={[{value: '', label: 'Select Category'}, ...categories.map(c => ({ value: c._id, label: c.name }))]}
+                    value={formData.categoryId}
+                    onChange={(val) => setFormData({...formData, categoryId: val})}
+                    searchable={true}
+                    placeholder="Search Category..."
+                />
+            </div>
+          </div>
+
+           <div className={styles.formGrid} style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <div className={styles.formGroup}>
+              <label>Cost Price</label>
+              <input type="number" required value={formData.costPrice} onChange={e => setFormData({...formData, costPrice: e.target.value})} className="input-field" placeholder="0.00" />
+            </div>
+             <div className={styles.formGroup}>
+              <label>MRP</label>
+              <input type="number" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} className="input-field" placeholder="0.00" />
+            </div>
+            <div className={styles.formGroup}>
+              <label>Selling Price</label>
+              <input type="number" required value={formData.sellingPrice} onChange={e => setFormData({...formData, sellingPrice: e.target.value})} className="input-field" placeholder="0.00" />
+            </div>
+          </div>
+
+           <div className={styles.formGrid}>
+            <div className={styles.formGroup}>
+              <label>Quantity</label>
+              <input type="number" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} className="input-field" placeholder="0" />
+            </div>
+             <div className={styles.formGroup}>
+                <label>Status</label>
+                 <div className={styles.selectWrapper}>
+                    <CustomDropdown 
+                        options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'INACTIVE', label: 'Inactive' }]}
+                        value={formData.status}
+                        onChange={(val) => setFormData({...formData, status: val as any})}
+                    />
+                </div>
+            </div>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label>Description (Optional)</label>
+            <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="input-field" />
+          </div>
+
+          <div className={styles.modalActions}>
+             <button type="button" className={styles.btnCancel} onClick={handleCloseModal}>Cancel</button>
+            <button type="submit" className="btn-primary">{editingProduct ? 'Update Product' : 'Create Product'}</button>
+          </div>
+        </form>
+      </Modal>
 
       {/* View Details Modal */}
-      {viewingProduct && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                Product Details
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>SKU</span>
-                    <span className={styles.detailValue}>{viewingProduct.sku}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Name</span>
-                    <span className={styles.detailValue}>{viewingProduct.name}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Category</span>
-                    <span className={styles.detailValue}>{viewingProduct.category?.name || 'N/A'}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Cost Price</span>
-                    <span className={styles.detailValue}>₹{viewingProduct.costPrice}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Selling Price</span>
-                    <span className={styles.detailValue}>₹{viewingProduct.sellingPrice}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Quantity</span>
-                    <span className={styles.detailValue}>{viewingProduct.quantity}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Status</span>
-                    <div style={{ marginTop: '0.25rem' }}>
-                        <span className={viewingProduct.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>
-                            {viewingProduct.status}
-                        </span>
+      <Modal
+        isOpen={!!viewingProduct}
+        onClose={handleCloseModal}
+        title="Product Details"
+      >
+        {viewingProduct && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className={styles.viewGrid}>
+                    <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>Product Name</span>
+                        <span className={styles.detailValue} style={{ textAlign: 'left' }}>{viewingProduct.name}</span>
+                    </div>
+                    <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>SKU</span>
+                        <span className={styles.detailValue} style={{ textAlign: 'left' }}>{viewingProduct.sku}</span>
+                    </div>
+                    <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>Category</span>
+                        <span className={styles.detailValue} style={{ textAlign: 'left' }}>{viewingProduct.category?.name || '-'}</span>
+                    </div>
+                     <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>Status</span>
+                        <StatusBadge status={viewingProduct.status} />
                     </div>
                 </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Product ID</span>
-                    <span className={styles.detailValue} style={{ fontSize: '0.9rem', fontFamily: 'monospace' }}>{viewingProduct._id}</span>
+                 <div className={styles.detailRow} style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.8rem', color: '#666' }}>Cost Price</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>₹{viewingProduct.costPrice}</div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.8rem', color: '#666' }}>Price</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                             {viewingProduct.mrp && (
+                                <div style={{ fontSize: '0.9rem', color: '#888', textDecoration: 'line-through' }}>
+                                    ₹{viewingProduct.mrp}
+                                </div>
+                             )}
+                             <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>
+                                ₹{viewingProduct.sellingPrice}
+                             </div>
+                        </div>
+                    </div>
+                     <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.8rem', color: '#666' }}>Stock</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>{viewingProduct.quantity}</div>
+                    </div>
+                </div>
+                 {viewingProduct.description && (
+                    <div style={{ marginTop: '1rem' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>Description</div>
+                        <div style={{ fontSize: '0.95rem', lineHeight: 1.5 }}>{viewingProduct.description}</div>
+                    </div>
+                )}
+                 <div className={styles.modalActions} style={{ marginTop: '1.5rem' }}>
+                    <button className={styles.btnCancel} onClick={handleCloseModal}>Close</button>
+                     <button className="btn-primary" onClick={() => {
+                        handleCloseModal();
+                        handleOpenModal(viewingProduct);
+                    }}>Edit Product</button>
                 </div>
             </div>
-
-            <div className={styles.modalActions}>
-              <button className={styles.btnCancel} onClick={handleCloseModal}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Delete Confirmation Modal */}
-      {deleteId && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`} style={{ maxWidth: '400px' }}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                Delete Product?
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
-            </div>
-            
-            <p style={{ color: 'var(--foreground)', marginBottom: '2rem', lineHeight: '1.6', fontSize: '1.1rem' }}>
-              Are you sure you want to delete <strong style={{ textDecoration: 'underline', textDecorationColor: 'var(--primary)', textUnderlineOffset: '4px' }}>{products.find(p => p._id === deleteId)?.name || 'this product'}</strong>?
-            </p>
-
-            <div className={styles.modalActions}>
-              <button 
-                className={styles.btnCancel} 
-                onClick={handleCloseModal}
-              >
-                Cancel
-              </button>
-              <button 
+      <Modal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        title="Delete Product?"
+        width="400px"
+      >
+        <p style={{ color: 'var(--foreground)', marginBottom: '2rem', lineHeight: '1.6' }}>
+            Are you sure you want to delete <strong style={{ textDecoration: 'underline' }}>{products.find(p => p._id === deleteId)?.name}</strong>? 
+            <br/>This action cannot be undone.
+        </p>
+        <div className={styles.modalActions}>
+            <button className={styles.btnCancel} onClick={() => setDeleteId(null)}>Cancel</button>
+            <button 
                 className="btn-primary" 
-                style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1.5rem' }}
+                style={{ background: '#ef4444', color: 'white', border: 'none' }}
                 onClick={confirmDelete}
-              >
+            >
                 Delete
-              </button>
-            </div>
-          </div>
+            </button>
         </div>
-      )}
-
+      </Modal>
     </div>
   );
 }

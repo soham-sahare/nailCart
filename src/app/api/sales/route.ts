@@ -11,6 +11,30 @@ export async function GET(req: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+    const mode = searchParams.get('mode');
+
+    // MODE: Fetch Distinct Months
+    if (mode === 'months') {
+        const result = await Order.aggregate([
+            {
+                $group: {
+                    _id: { 
+                        month: { $month: "$createdAt" }, 
+                        year: { $year: "$createdAt" } 
+                    }
+                }
+            },
+            { $sort: { "_id.year": -1, "_id.month": -1 } }
+        ]);
+
+        const months = result.map(item => {
+            const date = new Date(item._id.year, item._id.month - 1, 1);
+            return date.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
+        });
+
+        return NextResponse.json({ success: true, data: months });
+    }
+
     const skip = (page - 1) * limit;
 
     const query: any = {};
@@ -22,6 +46,20 @@ export async function GET(req: Request) {
       ];
     }
 
+    const monthParam = searchParams.get('month');
+    if (monthParam && monthParam !== 'All Time') {
+        const [mon, year] = monthParam.split('-');
+        const monthMap: { [key: string]: number } = { 
+            JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, 
+            JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 
+        };
+        if (monthMap[mon] !== undefined && year) {
+            const start = new Date(parseInt(year), monthMap[mon], 1);
+            const end = new Date(parseInt(year), monthMap[mon] + 1, 0, 23, 59, 59, 999); // End of month
+            query.createdAt = { $gte: start, $lte: end };
+        }
+    }
+
     const orders = await Order.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -31,6 +69,7 @@ export async function GET(req: Request) {
     const total = await Order.countDocuments(query);
 
     return NextResponse.json({
+      success: true,
       data: orders,
       pagination: {
         total,
@@ -60,6 +99,17 @@ export async function POST(req: Request) {
     const productMap = new Map();
     products.forEach((p: any) => productMap.set(p.name, p));
 
+    // VALIDATION: Check for sufficient stock
+    for (const item of body.items) {
+        const product: any = productMap.get(item.productName);
+        if (product && product.quantity < item.quantity) {
+             return NextResponse.json({ 
+                 success: false, 
+                 message: `Insufficient stock for "${item.productName}". Available: ${product.quantity}, Requested: ${item.quantity}` 
+             }, { status: 400 });
+        }
+    }
+
     // Enrich items with costPrice
     const enrichedItems = body.items.map((item: any) => {
         const product: any = productMap.get(item.productName);
@@ -84,6 +134,18 @@ export async function POST(req: Request) {
         items: enrichedItems,
         orderId: uniqueId 
     });
+
+    // INVENTORY UPDATE: Decrement stock
+    await Promise.all(body.items.map((item: any) => {
+        // Only update if we found the product (prevents errors on ad-hoc items)
+        if (productMap.has(item.productName)) {
+             return Product.updateOne(
+                { name: item.productName },
+                { $inc: { quantity: -item.quantity } }
+             );
+        }
+        return Promise.resolve();
+    }));
     return NextResponse.json({ success: true, data: order }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 400 });

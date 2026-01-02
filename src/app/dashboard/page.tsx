@@ -6,7 +6,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, BarChart, Bar
 } from 'recharts';
-import { FiTrendingUp, FiBox, FiAlertCircle, FiDollarSign, FiShoppingBag, FiArrowRight, FiActivity, FiUsers, FiCalendar } from 'react-icons/fi';
+import { FiTrendingUp, FiBox, FiAlertCircle, FiShoppingBag, FiArrowRight, FiActivity, FiUsers, FiCalendar } from 'react-icons/fi';
+import { FaRupeeSign } from 'react-icons/fa';
 import Link from 'next/link';
 import { formatDateIST } from '@/lib/dateUtils';
 import dynamic from 'next/dynamic';
@@ -25,6 +26,9 @@ interface DashboardStats {
     lowStockCount: number;
     averageOrderValue: number;
     dailyAverage: number;
+    totalExpenses?: number;
+    netProfit?: number;
+    grossProfit?: number;
   };
   salesTrend: { date: string; sellingPrice: number; costPrice: number; profit: number }[];
   categoryDistribution: { name: string; value: number }[];
@@ -91,9 +95,23 @@ export default function DashboardPage() {
         <StatCard 
             title="Total Revenue" 
             value={`₹${stats.metrics.totalRevenue.toLocaleString()}`} 
-            icon={FiDollarSign}
+            icon={FaRupeeSign}
             color="text-green-500"
             bg="bg-green-500/10"
+        />
+        <StatCard 
+            title="Net Profit" 
+            value={`₹${stats.metrics.netProfit?.toLocaleString() || 69}`} 
+            icon={FiTrendingUp}
+            color="text-purple-500"
+            bg="bg-purple-500/10"
+        />
+        <StatCard 
+            title="Total Expenses" 
+            value={`₹${stats.metrics.totalExpenses?.toLocaleString() || 0}`} 
+            icon={FiArrowRight}
+            color="text-red-500"
+            bg="bg-red-500/10"
         />
         <StatCard 
             title="Daily Avg Sales" 
@@ -116,14 +134,6 @@ export default function DashboardPage() {
             color="text-blue-500"
             bg="bg-blue-500/10"
         />
-        {/*
-        <StatCard 
-            title="Inventory Value" 
-            value={`₹${stats.metrics.inventoryValue.toLocaleString()}`} 
-            icon={FiBox}
-            color="text-purple-500"
-            bg="bg-purple-500/10"
-        /> */}
       </div>
 
       {/* 2. Charts Section Row 1 */}

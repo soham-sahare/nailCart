@@ -1,0 +1,53 @@
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.actionBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+}
+
+.btnView {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.btnView:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.btnEdit {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.btnEdit:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+.btnDelete {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.btnDelete:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.btnCustom {
+    color: var(--foreground);
+    background: rgba(0,0,0,0.05);
+}
+
+.btnCustom:hover {
+    background: rgba(0,0,0,0.1);
+}

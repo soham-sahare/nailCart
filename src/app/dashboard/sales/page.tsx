@@ -1,8 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiEye, FiMinus, FiCornerUpLeft } from 'react-icons/fi';
+import { FiPlus, FiCornerUpLeft, FiMinus } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
+import SearchInput from '@/components/ui/SearchInput';
+import ActionButtons from '@/components/ui/ActionButtons';
+import StatusBadge from '@/components/ui/StatusBadge';
+import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './sales.module.css';
 import { formatDateIST } from '@/lib/dateUtils';
@@ -23,6 +28,7 @@ interface Order {
   title: string;
   items: OrderItem[];
   discount: number;
+  courierFees?: number;
   totalAmount: number;
   status?: string;
   type?: string;
@@ -48,6 +54,36 @@ export default function SalesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Month Selection
+  const formatMonthKey = (date: Date) => {
+    return date.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
+  };
+  const currentMonthKey = formatMonthKey(new Date());
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  
+  useEffect(() => {
+      // Fetch available months from API
+      const fetchMonths = async () => {
+          try {
+              const res = await fetch('/api/sales?mode=months');
+              const data = await res.json();
+              if (data.success) {
+                  setAvailableMonths(data.data);
+                  // Setup default: If current month exists in data, select it. Else select 'All Time' or first available?
+                  // User behavior: usually wants to see latest. 
+                  // If we default to currentMonthKey, and it has no data, query returns empty. That's fine.
+                  // But 'availableMonths' list won't have it.
+                  // Let's just default to 'All Time' if current month isn't in the list? 
+                  // Or stick to currentMonthKey as default initial state (line 62).
+              }
+          } catch (err) {
+              console.error('Failed to fetch months', err);
+          }
+      };
+      fetchMonths();
+  }, []);
   
   // Toast
   const { showToast } = useToast();
@@ -62,19 +98,19 @@ export default function SalesPage() {
     mobileNumber: string;
     items: OrderItem[];
     discount: number;
+    courierFees: number;
     totalAmount: number;
   }>({
     customerName: '',
     mobileNumber: '',
     items: [],
     discount: 0,
+    courierFees: 0,
     totalAmount: 0 // Will auto calc
   });
   const [activeProduct, setActiveProduct] = useState('');
   const [error, setError] = useState('');
   const [sendWhatsapp, setSendWhatsapp] = useState(false);
-
-  // ... (fetchOrder, fetchProducts, etc remain same)
 
   // Add Product Handler (Single Search)
   const handleAddProduct = (productName: string) => {
@@ -89,11 +125,22 @@ export default function SalesPage() {
       if (existingItemIndex !== -1) {
           // Merge Logic: Increment Quantity
           const newItems = [...formData.items];
+          // Check stock limit
+          if (newItems[existingItemIndex].quantity + 1 > (product.quantity || 0)) {
+               showToast('error', 'Insufficient Stock', `Cannot add more "${productName}". Available: ${product.quantity}`);
+               setActiveProduct('');
+               return;
+          }
           newItems[existingItemIndex].quantity += 1;
           setFormData({ ...formData, items: newItems });
           showToast('success', 'Merged', `"${productName}" already exists. Added +1 quantity.`);
       } else {
           // Add New Logic
+          if ((product.quantity || 0) < 1) {
+               showToast('error', 'Out of Stock', `"${productName}" is out of stock.`);
+               setActiveProduct('');
+               return;
+          }
           const newItem: OrderItem = {
               productName: product.name,
               quantity: 1,
@@ -114,11 +161,6 @@ export default function SalesPage() {
       setActiveProduct(''); // Reset dropdown
   };
 
-  // ... (handleDeleteClick, etc)
-
-
-
-
   // Delete & Return State
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [returnOrder, setReturnOrder] = useState<Order | null>(null); // Full order being returned
@@ -128,7 +170,8 @@ export default function SalesPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sales?search=${search}&page=${page}&limit=${limit}`);
+      const query = `page=${page}&limit=${limit}&search=${search}&month=${selectedMonth}`;
+      const res = await fetch(`/api/sales?${query}`);
       const data = await res.json();
       setOrders(data.data);
       setTotalPages(data.pagination.pages);
@@ -153,14 +196,14 @@ export default function SalesPage() {
   useEffect(() => {
     fetchOrders();
     fetchProducts();
-  }, [search, page, limit]);
+  }, [search, page, limit, selectedMonth]);
 
   // Recalculate total when items change
   useEffect(() => {
       const subtotal = formData.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-      const total = Math.max(0, subtotal - Number(formData.discount));
+      const total = Math.max(0, subtotal - Number(formData.discount) + Number(formData.courierFees || 0));
       setFormData(prev => ({ ...prev, totalAmount: total }));
-  }, [formData.items, formData.discount]);
+  }, [formData.items, formData.discount, formData.courierFees]);
 
   const handleOpenModal = (order?: Order) => {
     if (order) {
@@ -170,6 +213,7 @@ export default function SalesPage() {
         mobileNumber: order.mobileNumber || '',
         items: order.items.map(i => ({...i})),
         discount: order.discount || 0,
+        courierFees: order.courierFees || 0,
         totalAmount: order.totalAmount
       });
     } else {
@@ -179,6 +223,7 @@ export default function SalesPage() {
         mobileNumber: '',
         items: [{ productName: '', quantity: 1, price: 0, sku: '', category: '' }],
         discount: 0,
+        courierFees: 0,
         totalAmount: 0 // Will auto calc
       });
       setSendWhatsapp(false);
@@ -187,22 +232,16 @@ export default function SalesPage() {
     setIsModalOpen(true);
   };
 
-  const handleViewOrder = (order: Order) => {
-    setViewingOrder(order);
-  };
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingOrder(null);
-    setViewingOrder(null);
     setViewingOrder(null);
     setDeleteId(null);
     setReturnOrder(null);
   };
 
   // Form Handlers
-  const handleReturnClick = (order: Order, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleReturnClick = (order: Order) => {
     setReturnOrder(order);
     // Initialize return items with 0 quantity but keeping details
     setReturnItems(order.items.map(item => ({
@@ -258,37 +297,23 @@ export default function SalesPage() {
       }
   };
 
-  const handleItemChange = (index: number, field: keyof OrderItem, value: any) => {
-      const newItems = [...formData.items];
-      const item = { ...newItems[index] };
-
-      if (field === 'productName') {
-          const product = products.find(p => p.name === value);
-          item.productName = value;
-          if (product) {
-              item.price = product.sellingPrice;
-              item.sku = product.sku;
-              item.category = product.category?.name || '';
-          }
-      } else {
-          (item as any)[field] = value;
-      }
-      
-      newItems[index] = item;
-      setFormData({ ...formData, items: newItems });
-  };
-
-
   const handleQuantityChange = (index: number, delta: number) => {
       const newItems = [...formData.items];
-      const currentQty = newItems[index].quantity || 0;
+      const item = newItems[index];
+      const currentQty = item.quantity || 0;
       const newQty = Math.max(1, currentQty + delta);
-      newItems[index] = { ...newItems[index], quantity: newQty };
-      setFormData({ ...formData, items: newItems });
-  };
+      
+      // Stock Validation
+      if (delta > 0) {
+          const product = products.find(p => p.name === item.productName);
+          if (product && newQty > (product.quantity || 0)) {
+               showToast('error', 'Insufficient Stock', `Cannot exceed available quantity: ${product.quantity}`);
+               return;
+          }
+      }
 
-  const addItem = () => {
-      setFormData({ ...formData, items: [...formData.items, { productName: '', quantity: 1, price: 0 }] });
+      newItems[index] = { ...item, quantity: newQty };
+      setFormData({ ...formData, items: newItems });
   };
 
   const removeItem = (index: number) => {
@@ -308,9 +333,12 @@ export default function SalesPage() {
           message += `• ${item.productName} (x${item.quantity}) - ₹${item.price * item.quantity}\n`;
       });
       
-      message += `\n*Subtotal:* ₹${order.totalAmount + (order.discount || 0)}\n`;
+      message += `\n*Subtotal:* ₹${order.totalAmount - (order.courierFees || 0) + (order.discount || 0)}\n`;
       if (order.discount > 0) {
           message += `*Discount:* -₹${order.discount}\n`;
+      }
+      if (order.courierFees && order.courierFees > 0) {
+          message += `*Courier Fees:* +₹${order.courierFees}\n`;
       }
       message += `*TOTAL AMOUNT:* ₹${order.totalAmount}\n\n`;
       
@@ -370,11 +398,6 @@ export default function SalesPage() {
     }
   };
 
-  const handleDeleteClick = (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setDeleteId(id);
-  };
-
   const confirmDelete = async () => {
     if (!deleteId) return;
 
@@ -400,202 +423,139 @@ export default function SalesPage() {
     }
   };
 
-  const getStatusInfo = (order: Order) => {
-      if (order.status === 'RETURNED') {
-          if (order.returnType === 'REFUND_ONLY') {
-              return { label: 'REFUND', className: styles.statusRefunded };
-          }
-          return { label: 'RETURN', className: styles.statusReturned };
-      }
-      if (order.status === 'CANCELLED') return { label: 'CANCELLED', className: styles.statusCancelled };
-      return { label: 'COMPLETED', className: styles.statusCompleted };
-  };
-
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Sales</h1>
       </div>
 
-      <div className={`${styles.controls} glass`}>
-        <div className={styles.searchGroup}>
-          <FiSearch color="#888" size={20} />
-          <input
-            type="text"
-            placeholder="Search sales (ID or Customer)..."
-            className={`input-field ${styles.searchInput}`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+      <div>
+        <div className={`${styles.controls} glass`}>
+          <SearchInput 
+            value={search} 
+            onChange={setSearch} 
+            placeholder="Search sales (ID or Customer)..." 
           />
-        </div>
 
-        <div className={styles.controlActions}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666' }}>Show:</span>
-              <div style={{ width: '80px' }}>
-                  <CustomDropdown 
-                      options={[
-                          { value: '5', label: '5' },
-                          { value: '10', label: '10' },
-                          { value: '20', label: '20' }
-                      ]}
-                      value={String(limit)}
-                      onChange={(val) => setLimit(Number(val))}
-                  />
-              </div>
-          </div>
-
-          <button 
-            className="btn-primary" 
-            onClick={() => handleOpenModal()}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
-          >
-            <FiPlus /> Add Sale
-          </button>
-        </div>
-      </div>
-
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Sale ID</th>
-              <th>Customer</th>
-              <th>Mobile Number</th>
-              <th>Status</th>
-              <th>Total Amount</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center' }}>Loading...</td></tr>
-            ) : orders.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center' }}>No sales found</td></tr>
-            ) : (
-              orders.map((order) => (
-                <tr key={order._id}>
-                  <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <a 
-                            href={`/invoice/${order._id}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            style={{ 
-                                fontFamily: 'monospace', 
-                                fontWeight: 600, 
-                                color: 'var(--primary)', 
-                                textDecoration: 'underline',
-                                cursor: 'pointer' 
-                            }}
-                          >
-                            {order.orderId}
-                          </a>
-                          {order.originalOrderId && (
-                              <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>
-                                  Ref: <span style={{ fontFamily: 'monospace' }}>{order.originalOrderId}</span>
-                              </span>
-                          )}
-                      </div>
-                  </td>
-                  <td>{order.customerName}</td>
-                  <td style={{ fontFamily: 'monospace' }}>{order.mobileNumber}</td>
-                  <td>
-                    {(() => {
-                        const { label, className } = getStatusInfo(order);
-                        return <span className={className}>{label}</span>;
-                    })()}
-                  </td>
-                  <td>₹{order.totalAmount}</td>
-                  <td>
-                    <div className={styles.actions}>
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnView}`}
-                        onClick={(e) => { e.stopPropagation(); handleViewOrder(order); }}
-                        title="View Details"
-                      >
-                        <FiEye size={16} />
-                      </button>
-
-                      {order.status !== 'RETURNED' && (
-                        <button 
-                            className={`${styles.actionBtn} ${styles.btnEdit}`}
-                            onClick={(e) => { e.stopPropagation(); handleOpenModal(order); }}
-                            title="Edit"
-                        >
-                            <FiEdit2 size={16} />
-                        </button>
-                      )}
-
-                      {order.status !== 'RETURNED' && order.type !== 'RETURN' && !order.hasReturn && (
-                        <button
-                            className={`${styles.actionBtn} ${styles.btnReturn}`}
-                            onClick={(e) => handleReturnClick(order, e)}
-                            title="Return / Refund"
-                        >
-                            <FiCornerUpLeft size={16} />
-                        </button>
-                      )}
-
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnDelete}`}
-                        onClick={(e) => handleDeleteClick(order._id, e)}
-                        title="Delete"
-                      >
-                        <FiTrash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className={styles.pagination}>
-        <button 
-          className={styles.pageBtn} 
-          disabled={page === 1}
-          onClick={() => setPage(page - 1)}
-        >
-          Prev
-        </button>
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-          <button
-            key={p}
-            className={`${styles.pageBtn} ${page === p ? styles.active : ''}`}
-            onClick={() => setPage(p)}
-          >
-            {p}
-          </button>
-        ))}
-        <button 
-          className={styles.pageBtn}
-          disabled={page === totalPages}
-          onClick={() => setPage(page + 1)}
-        >
-          Next
-        </button>
-      </div>
-
-      {isModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem' }}>
-                {editingOrder ? 'Edit Sale' : 'New Sale'}
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
+          <div className={styles.controlActions}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ color: '#666', fontSize: '0.9rem' }}>Month:</span>
+                <div style={{ width: '200px' }}>
+                    <CustomDropdown 
+                        options={['All Time', ...availableMonths].map(m => ({ value: m, label: m }))}
+                        value={selectedMonth}
+                        onChange={setSelectedMonth}
+                    />
+                </div>
             </div>
 
-            {error && <div className={styles.error} style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ color: '#666', fontSize: '0.9rem' }}>Show:</span>
+                <div style={{ width: '80px' }}>
+                    <CustomDropdown 
+                        options={[
+                            { value: '5', label: '5' },
+                            { value: '10', label: '10' },
+                            { value: '25', label: '25' }
+                        ]}
+                        value={String(limit)}
+                        onChange={(val) => setLimit(Number(val))}
+                    />
+                </div>
+            </div>
 
-            <form onSubmit={handleSubmit}>
+            <button 
+              className="btn-primary" 
+              onClick={() => setIsModalOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
+            >
+              <FiPlus /> New Order
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Sale ID</th>
+                <th>Customer</th>
+                <th>Mobile Number</th>
+                <th>Status</th>
+                <th>Total Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
+              ) : orders.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem' }}>No sales found</td></tr>
+              ) : (
+                orders.map((order) => (
+                  <tr key={order._id}>
+                    <td>
+                      <span 
+                          style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                          onClick={() => setViewingOrder(order)}
+                        >
+                          {order.orderId}
+                      </span>
+                      {order.originalOrderId && (
+                        <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem' }}>
+                            Ref: {order.originalOrderId}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{order.customerName}</td>
+                    <td>{order.mobileNumber || '-'}</td>
+                    <td>
+                      <StatusBadge status={order.status || 'PENDING'} />
+                    </td>
+                    <td style={{ fontWeight: 600 }}>₹{order.totalAmount}</td>
+                    <td>
+                       <ActionButtons 
+                            onView={() => setViewingOrder(order)}
+                            onEdit={order.status !== 'RETURNED' && order.status !== 'REFUNDED' ? () => handleOpenModal(order) : undefined}
+                            onDelete={() => setDeleteId(order._id)}
+                            customActions={
+                                order.status === 'COMPLETED' && (
+                                     <button
+                                        className={`${styles.actionBtn}`}
+                                        style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', marginRight: '0.5rem' }}
+                                        onClick={(e) => { e.stopPropagation(); handleReturnClick(order); }}
+                                        title="Process Return"
+                                     >
+                                        <FiCornerUpLeft size={16} />
+                                     </button>
+                                )
+                            }
+                       />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        <Pagination 
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+        />
+      </div>
+
+      {/* Write Order Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        title={editingOrder ? 'Edit Sale' : 'New Sale'}
+        width="800px"
+      >
+        <form onSubmit={handleSubmit}>
               <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-                 
+                  
                 <div className={styles.formGrid}>
                     <div>
                         <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Customer Name</label>
@@ -629,7 +589,7 @@ export default function SalesPage() {
                          <CustomDropdown
                             options={products.map(p => ({ value: p.name, label: p.name }))}
                             value={activeProduct}
-                            onChange={handleAddProduct}
+                            onChange={(val) => handleAddProduct(val as string)}
                             placeholder="🔍 Search & Add Product..."
                             searchable={true}
                         />
@@ -748,7 +708,6 @@ export default function SalesPage() {
                         )
                         ))}
                     </div>
-                    {/* Add Item Button Removed */}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
@@ -763,315 +722,261 @@ export default function SalesPage() {
                             min="0"
                          />
                     </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                         <label style={{ fontSize: '0.9rem', color: '#888', marginBottom: '0.25rem' }}>Courier Fees (₹)</label>
+                         <input 
+                            type="number" 
+                            className="input-field" 
+                            style={{ width: '100px', textAlign: 'right' }}
+                            value={formData.courierFees}
+                            onChange={(e) => setFormData({ ...formData, courierFees: Number(e.target.value) })}
+                            min="0"
+                         />
+                    </div>
                 </div>
 
                 <div style={{ textAlign: 'right', marginTop: '0.5rem', fontWeight: 700, fontSize: '1.5rem', color: 'var(--primary)' }}>
                     Total: ₹{formData.totalAmount}
                 </div>
 
-              </div>
-
-              <div className={styles.modalActions}>
-                <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input 
-                        type="checkbox" 
-                        id="whatsappDetails" 
-                        checked={sendWhatsapp}
-                        onChange={(e) => setSendWhatsapp(e.target.checked)}
-                        style={{ width: '1.2rem', height: '1.2rem', accentColor: '#25D366', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="whatsappDetails" style={{ cursor: 'pointer', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        Send Bill on WhatsApp <span style={{fontSize: '1.2rem'}}>📱</span>  
-                    </label>
-                </div>
-
-                <button type="button" className={styles.btnCancel} onClick={handleCloseModal}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  {editingOrder ? 'Update' : 'Generate Sale'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* View Details Modal */}
-      {viewingOrder && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                Sale Details
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Sale ID</span>
-                    <span className={styles.detailValue} style={{ fontFamily: 'monospace' }}>{viewingOrder.orderId}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Customer</span>
-                    <span className={styles.detailValue}>{viewingOrder.customerName}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Mobile</span>
-                    <span className={styles.detailValue} style={{ fontFamily: 'monospace' }}>{viewingOrder.mobileNumber}</span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Status</span>
-                    <span className={styles.detailValue}>
-                        {(() => {
-                            const { label, className } = getStatusInfo(viewingOrder);
-                            return <span className={className}>{label}</span>;
-                        })()}
-                    </span>
-                </div>
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Date</span>
-                    <span className={styles.detailValue}>{formatDateIST(viewingOrder.createdAt)}</span>
-                </div>
-
-                <div style={{ marginTop: '1rem' }}>
-                    <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: '0.5rem' }}>
-                        <span className={styles.detailLabel}>Items</span>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '0.5rem', overflow: 'hidden' }}>
-                        {viewingOrder.items.map((item, idx) => (
-                            <div key={idx} style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                padding: '0.75rem 1rem',
-                                borderBottom: idx !== viewingOrder.items.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
-                            }}>
-                                <span>{item.productName} <span style={{opacity: 0.6}}>x{item.quantity}</span></span>
-                                <span>₹{item.price * item.quantity}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className={styles.detailRow} style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
-                    <span className={styles.detailLabel}>Subtotal</span>
-                    <span className={styles.detailValue}>₹{viewingOrder.totalAmount + (viewingOrder.discount || 0)}</span>
-                </div>
-                {viewingOrder.discount > 0 && (
-                    <div className={styles.detailRow}>
-                        <span className={styles.detailLabel}>Discount</span>
-                        <span className={styles.detailValue} style={{ color: '#ef4444' }}>- ₹{viewingOrder.discount}</span>
+                {/* WhatsApp Checkbox */}
+                {!editingOrder && (
+                     <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        <input 
+                            type="checkbox" 
+                            id="whatsapp" 
+                            checked={sendWhatsapp} 
+                            onChange={(e) => setSendWhatsapp(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#25D366' }}
+                        />
+                        <label htmlFor="whatsapp" style={{ cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                             Send Invoice on WhatsApp 
+                             <span style={{ color: '#25D366' }}>
+                                 {/* WhatsApp Icon SVG could go here */}
+                                 (WhatsApp)
+                             </span>
+                        </label>
                     </div>
                 )}
-                <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Total Amount</span>
-                    <span className={styles.detailValue} style={{ fontSize: '1.25rem', color: 'var(--primary)' }}>₹{viewingOrder.totalAmount}</span>
-                </div>
             </div>
 
             <div className={styles.modalActions}>
-              <button className={styles.btnCancel} onClick={handleCloseModal}>
-                Close
-              </button>
+                <button type="button" className={styles.btnCancel} onClick={handleCloseModal}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ padding: '0.75rem 2rem' }}>
+                    {editingOrder ? 'Update Sale' : 'Complete Sale'}
+                </button>
             </div>
-          </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
-      {/* Delete Confirmation Modal */}
-      {deleteId && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`} style={{ maxWidth: '400px' }}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                Delete Sale?
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
-            </div>
-            
-            <p style={{ color: 'var(--foreground)', marginBottom: '2rem', lineHeight: '1.6', fontSize: '1.1rem' }}>
-              Are you sure you want to delete sale <strong style={{ textDecoration: 'underline', textDecorationColor: 'var(--primary)', textUnderlineOffset: '4px', fontFamily: 'monospace' }}>{orders.find(o => o._id === deleteId)?.orderId}</strong>?
-            </p>
+      {/* View Details Modal */}
+      <Modal
+        isOpen={!!viewingOrder}
+        onClose={handleCloseModal}
+        title="Order Details"
+        width="600px"
+      >
+        {viewingOrder && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+                    <div>
+                        <div style={{ fontSize: '0.9rem', color: '#888' }}>Order ID</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{viewingOrder.orderId}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#888' }}>Date</div>
+                         <div style={{ fontWeight: 500 }}>{formatDateIST(viewingOrder.createdAt)}</div>
+                    </div>
+               </div>
 
-            <div className={styles.modalActions}>
-              <button 
-                className={styles.btnCancel} 
-                onClick={handleCloseModal}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn-primary" 
-                style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1.5rem' }}
-                onClick={confirmDelete}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Partial Return Modal */}
-      {returnOrder && (
-        <div className={styles.modalOverlay}>
-            <div className={`${styles.modal} glass`} style={{ maxWidth: '600px' }}>
-                <div className={styles.modalHeader}>
-                    <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                        Create Return Invoice
-                    </h2>
-                    <button className={styles.closeBtn} onClick={handleCloseModal}>
-                        <FiX />
-                    </button>
-                </div>
-                <div style={{ marginBottom: '1.5rem', fontSize: '0.95rem', color: '#666' }}>
-                    Creating return for order <strong style={{ fontFamily: 'monospace', color: 'var(--foreground)' }}>{returnOrder.orderId}</strong>
+                <div className={styles.viewGrid}>
+                    <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>Customer Name</span>
+                        <span className={styles.detailValue} style={{ textAlign: 'left' }}>{viewingOrder.customerName}</span>
+                    </div>
+                     <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>Mobile</span>
+                        <span className={styles.detailValue} style={{ textAlign: 'left' }}>{viewingOrder.mobileNumber}</span>
+                    </div>
+                     <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>Status</span>
+                        <StatusBadge status={viewingOrder.status || 'PENDING'} />
+                    </div>
+                     <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                        <span className={styles.detailLabel}>Order Date</span>
+                        <span className={styles.detailValue} style={{ textAlign: 'left' }}>{formatDateIST(viewingOrder.createdAt)}</span>
+                    </div>
                 </div>
 
-                {/* Items Selection Table */}
-                <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '12px', marginBottom: '1.5rem' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                        <thead style={{ background: 'var(--surface-hover)', position: 'sticky', top: 0 }}>
+                {/* Items List */}
+                 <div style={{ marginTop: '1rem', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead style={{ background: 'var(--surface-hover)' }}>
                             <tr>
-                                <th style={{ padding: '10px 15px', textAlign: 'left', fontWeight: 600 }}>Item</th>
-                                <th style={{ padding: '10px 15px', textAlign: 'center', fontWeight: 600 }}>Sold</th>
-                                <th style={{ padding: '10px 15px', textAlign: 'center', fontWeight: 600 }}>Return Qty</th>
-                                <th style={{ padding: '10px 15px', textAlign: 'right', fontWeight: 600 }}>Refund</th>
+                                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.85rem', color: '#666' }}>Item</th>
+                                <th style={{ padding: '0.75rem', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>Qty</th>
+                                <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.85rem', color: '#666' }}>Price</th>
+                                <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.85rem', color: '#666' }}>Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {returnOrder.items.map((item, idx) => {
-                                const returnItem = returnItems[idx] || { quantity: 0 };
-                                const isSelected = returnItem.quantity > 0;
-                                
-                                return (
-                                <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: isSelected ? 'rgba(var(--primary-rgb), 0.02)' : 'transparent' }}>
-                                    <td style={{ padding: '10px 15px' }}>
+                            {viewingOrder.items.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <td style={{ padding: '0.75rem' }}>
                                         <div style={{ fontWeight: 500 }}>{item.productName}</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>₹{item.price}</div>
+                                        {item.sku && <div style={{ fontSize: '0.75rem', color: '#888' }}>{item.sku}</div>}
                                     </td>
-                                    <td style={{ padding: '10px 15px', textAlign: 'center', color: '#666' }}>
-                                        {item.quantity}
-                                    </td>
-                                    <td style={{ padding: '10px 15px', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                            <button 
-                                                type="button"
-                                                onClick={() => handleReturnItemChange(idx, -1)}
-                                                className={styles.pageBtn}
-                                                style={{ width: '28px', height: '28px', fontSize: '1rem', padding: 0 }}
-                                                disabled={returnItem.quantity <= 0}
-                                            >
-                                                -
-                                            </button>
-                                            <span style={{ width: '20px', textAlign: 'center', fontWeight: 600 }}>{returnItem.quantity}</span>
-                                            <button 
-                                                type="button"
-                                                onClick={() => handleReturnItemChange(idx, 1)}
-                                                className={styles.pageBtn}
-                                                style={{ width: '28px', height: '28px', fontSize: '1rem', padding: 0, color: 'var(--primary)', borderColor: 'var(--primary)' }}
-                                                disabled={returnItem.quantity >= item.quantity}
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '10px 15px', textAlign: 'right', fontWeight: 600, color: isSelected ? 'var(--primary)' : 'inherit' }}>
-                                        ₹{returnItem.quantity * item.price}
-                                    </td>
+                                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.quantity}</td>
+                                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>₹{item.price}</td>
+                                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>₹{item.price * item.quantity}</td>
                                 </tr>
-                            )})}
+                            ))}
                         </tbody>
                     </table>
+                 </div>
+
+                 {/* Totals */}
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', marginTop: '1rem', paddingRight: '0.75rem' }}>
+                     <div style={{ display: 'flex', gap: '2rem' }}>
+                         <span style={{ color: '#888' }}>Subtotal:</span>
+                         <span style={{ fontWeight: 600 }}>₹{viewingOrder.totalAmount + (viewingOrder.discount || 0)}</span>
+                     </div>
+                     {viewingOrder.discount > 0 && (
+                        <div style={{ display: 'flex', gap: '2rem', color: '#ef4444' }}>
+                            <span>Discount:</span>
+                            <span>- ₹{viewingOrder.discount}</span>
+                        </div>
+                     )}
+                     <div style={{ display: 'flex', gap: '2rem', color: 'var(--foreground)' }}>
+                            <span>Courier Fees:</span>
+                            <span>+ ₹{viewingOrder.courierFees || 0}</span>
+                        </div>
+                     <div style={{ display: 'flex', gap: '2rem', fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
+                         <span>Total:</span>
+                         <span>₹{viewingOrder.totalAmount}</span>
+                     </div>
+                 </div>
+
+                  <div className={styles.modalActions} style={{ marginTop: '1.5rem' }}>
+                    <button className={styles.btnCancel} onClick={handleCloseModal}>
+                        Close
+                    </button>
+                    <button className="btn-primary" onClick={() => window.open(`/invoice/${viewingOrder._id}`, '_blank')}>
+                         Print Invoice
+                    </button>
+                </div>
+            </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteId}
+        onClose={handleCloseModal}
+        title="Delete Sale?"
+        width="400px"
+      >
+        <p style={{ color: 'var(--foreground)', marginBottom: '2rem', lineHeight: '1.6' }}>
+            Are you sure you want to delete sale <strong style={{ textDecoration: 'underline' }}>{orders.find(o => o._id === deleteId)?.orderId}</strong>?
+            <br/>This action cannot be undone.
+        </p>
+        <div className={styles.modalActions}>
+            <button className={styles.btnCancel} onClick={handleCloseModal}>Cancel</button>
+            <button 
+                className="btn-primary" 
+                style={{ background: '#ef4444', color: 'white', border: 'none' }}
+                onClick={confirmDelete}
+            >
+                Delete
+            </button>
+        </div>
+      </Modal>
+
+      {/* Return Modal */}
+      <Modal
+        isOpen={!!returnOrder}
+        onClose={handleCloseModal}
+        title="Process Return"
+        width="600px"
+      >
+         {returnOrder && (
+             <div>
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--surface-hover)', borderRadius: '12px' }}>
+                     <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>Order: {returnOrder.orderId}</div>
+                     <div style={{ color: '#666', fontSize: '0.9rem' }}>Select items and quantities to return</div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '1rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                     <span style={{ fontWeight: 600, color: '#666' }}>Total Refund Amount:</span>
-                     <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>
-                        ₹{returnItems.reduce((sum, item, idx) => sum + (item.quantity * (returnOrder.items[idx]?.price || 0)), 0)}
-                     </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
+                    {returnOrder.items.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                             <div>
+                                 <div style={{ fontWeight: 500 }}>{item.productName}</div>
+                                 <div style={{ fontSize: '0.8rem', color: '#888' }}>Sold: {item.quantity} | Price: ₹{item.price}</div>
+                             </div>
+
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: returnItems[idx]?.quantity > 0 ? '#ef4444' : '#ccc' }}>
+                                     Return: {returnItems[idx]?.quantity || 0}
+                                 </div>
+                                 <div style={{ display: 'flex', gap: '4px' }}>
+                                     <button 
+                                        type="button"
+                                        onClick={() => handleReturnItemChange(idx, -1)}
+                                        style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                     >
+                                         -
+                                     </button>
+                                       <button 
+                                        type="button"
+                                        onClick={() => handleReturnItemChange(idx, 1)}
+                                        style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}
+                                     >
+                                         +
+                                     </button>
+                                 </div>
+                             </div>
+                        </div>
+                    ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <label style={{ 
-                        flex: 1,
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.75rem', 
-                        padding: '1rem', 
-                        border: `1px solid ${returnAction === 'restock' ? 'var(--primary)' : 'var(--border)'}`,
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        background: returnAction === 'restock' ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent',
-                        transition: 'all 0.2s'
-                    }}
-                    onClick={() => setReturnAction('restock')}
-                    >
-                        <input 
-                            type="radio" 
-                            name="returnAction" 
-                            checked={returnAction === 'restock'} 
-                            onChange={() => setReturnAction('restock')} 
-                            style={{ accentColor: 'var(--primary)', transform: 'scale(1.2)' }}
-                        />
-                        <div>
-                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--foreground)' }}>Return Stock</div>
-                            <div style={{ fontSize: '0.75rem', color: '#888' }}>Items added back to inventory.</div>
-                        </div>
-                    </label>
-
-                    <label style={{ 
-                        flex: 1,
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.75rem', 
-                        padding: '1rem', 
-                        border: `1px solid ${returnAction === 'refund' ? 'var(--primary)' : 'var(--border)'}`,
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        background: returnAction === 'refund' ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent',
-                        transition: 'all 0.2s'
-                    }}
-                    onClick={() => setReturnAction('refund')}
-                    >
-                        <input 
-                            type="radio" 
-                            name="returnAction" 
-                            checked={returnAction === 'refund'} 
-                            onChange={() => setReturnAction('refund')} 
-                            style={{ accentColor: 'var(--primary)', transform: 'scale(1.2)' }}
-                        />
-                         <div>
-                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--foreground)' }}>Refund Only</div>
-                            <div style={{ fontSize: '0.75rem', color: '#888' }}>Money refunded, stock unchanged.</div>
-                        </div>
-                    </label>
+                <div style={{ marginTop: '2rem' }}>
+                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Return Action</label>
+                     <div style={{ display: 'flex', gap: '1rem' }}>
+                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                             <input 
+                                type="radio" 
+                                checked={returnAction === 'restock'} 
+                                onChange={() => setReturnAction('restock')}
+                                name="returnAction"
+                             />
+                             <span>Restock Items & Refund</span>
+                         </label>
+                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                             <input 
+                                type="radio" 
+                                checked={returnAction === 'refund'} 
+                                onChange={() => setReturnAction('refund')}
+                                name="returnAction"
+                             />
+                             <span>Refund Only (Damaged)</span>
+                         </label>
+                     </div>
                 </div>
 
                 <div className={styles.modalActions}>
-                    <button 
-                        className={styles.btnCancel}
-                        onClick={handleCloseModal}
-                    >
-                        Cancel
-                    </button>
+                    <button className={styles.btnCancel} onClick={handleCloseModal}>Cancel</button>
                     <button 
                         className="btn-primary" 
-                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1.5rem' }}
                         onClick={confirmReturn}
-                        disabled={returnItems.every(i => i.quantity === 0)}
+                        style={{ background: '#f59e0b', color: 'black' }}
                     >
                         Confirm Return
                     </button>
                 </div>
-            </div>
-        </div>
-      )}
+             </div>
+         )}
+      </Modal>
+
     </div>
   );
 }

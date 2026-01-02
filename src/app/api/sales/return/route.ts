@@ -61,7 +61,7 @@ export async function POST(req: Request) {
         items: returnItems,
         totalAmount: refundAmount, // This acts as the refund amount
         discount: 0, // No discount on return usually, or calculate proportional? Simplicity -> 0
-        status: 'RETURNED', // Ensure UI shows RETURN/REFUND correctly
+        status: returnType === 'REFUND_ONLY' ? 'REFUNDED' : 'RETURNED',
         type: 'RETURN',
         originalOrderId: originalOrderId,
         returnType: returnType

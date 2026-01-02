@@ -35,6 +35,7 @@ export async function GET(req: Request) {
     const total = await Category.countDocuments(query);
 
     return NextResponse.json({
+      success: true,
       data: categories,
       pagination: {
         total,

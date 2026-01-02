@@ -20,6 +20,7 @@ interface Order {
   mobileNumber: string;
   items: OrderItem[];
   discount: number;
+  courierFees?: number;
   totalAmount: number;
 
   status: string;
@@ -206,12 +207,18 @@ export default function InvoicePage() {
             <div className={styles.totalsBox}>
                 <div className={styles.totalRow}>
                     <span>Subtotal</span>
-                    <span>₹{order.totalAmount + (order.discount || 0)}</span>
+                    <span>₹{order.totalAmount + (order.discount || 0) - (order.courierFees || 0)}</span>
                 </div>
                 {order.discount > 0 && (
                      <div className={styles.totalRow} style={{ color: '#ef4444' }}>
                         <span>Discount</span>
                         <span>- ₹{order.discount}</span>
+                    </div>
+                )}
+                {(order.courierFees || 0) > 0 && (
+                     <div className={styles.totalRow}>
+                        <span>Courier Fees</span>
+                        <span>+ ₹{order.courierFees}</span>
                     </div>
                 )}
                 <div className={styles.totalRow + ' ' + styles.final}>

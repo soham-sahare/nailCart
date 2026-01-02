@@ -25,6 +25,10 @@ const ProductSchema = new mongoose.Schema({
     required: [true, 'Please provide selling price'],
     min: 0,
   },
+  mrp: {
+    type: Number,
+    min: 0,
+  },
   quantity: {
     type: Number,
     required: [true, 'Please provide quantity'],

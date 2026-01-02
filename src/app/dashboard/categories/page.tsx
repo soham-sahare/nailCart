@@ -1,8 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiEye } from 'react-icons/fi';
+import { FiPlus } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
+import SearchInput from '@/components/ui/SearchInput';
+import ActionButtons from '@/components/ui/ActionButtons';
+import StatusBadge from '@/components/ui/StatusBadge';
+import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './categories.module.css';
 
@@ -10,6 +15,7 @@ interface Category {
   _id: string;
   name: string;
   status: 'ACTIVE' | 'INACTIVE';
+  slug: string;
 }
 
 export default function CategoriesPage() {
@@ -20,35 +26,36 @@ export default function CategoriesPage() {
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   
-  // Toast
-  const { showToast } = useToast();
-  
-  // Modal States
+  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  
   const [formData, setFormData] = useState({ name: '', status: 'ACTIVE' });
   const [error, setError] = useState('');
+
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    fetchCategories();
+  }, [search, limit, page]);
 
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/categories?search=${search}&page=${page}&limit=${limit}`);
+      const res = await fetch(`/api/categories?search=${search}&limit=${limit}&page=${page}`);
       const data = await res.json();
-      setCategories(data.data || []);
-      setTotalPages(data.pagination ? data.pagination.pages : 1);
+      if (data.success) {
+        setCategories(data.data);
+        setTotalPages(data.pagination ? data.pagination.pages : 1);
+      }
     } catch (err) {
       console.error(err);
+      showToast('error', 'Error', 'Failed to fetch categories');
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchCategories();
-  }, [search, page, limit]);
 
   const handleOpenModal = (category?: Category) => {
     if (category) {
@@ -62,38 +69,21 @@ export default function CategoriesPage() {
     setIsModalOpen(true);
   };
 
-  const handleViewCategory = (category: Category) => {
-    setViewingCategory(category);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingCategory(null);
-    setViewingCategory(null);
-    setDeleteId(null);
-    setFormData({ name: '', status: 'ACTIVE' });
+  const handleDeleteClick = (id: string, name: string) => {
+      setDeleteId(id);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    // Capture values before async/reset
-    const categoryName = formData.name;
-    const isEdit = !!editingCategory;
-
+    
     try {
-      const url = editingCategory 
-        ? `/api/categories/${editingCategory._id}` 
-        : '/api/categories';
-      
+      const url = editingCategory ? `/api/categories/${editingCategory._id}` : '/api/categories';
       const method = editingCategory ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
@@ -103,30 +93,16 @@ export default function CategoriesPage() {
         throw new Error(data.message || 'Something went wrong');
       }
 
-      handleCloseModal();
+      showToast('success', 'Success', editingCategory ? 'Category updated' : 'Category created');
+      setIsModalOpen(false);
       fetchCategories();
-      
-      if (isEdit) {
-          showToast('success', 'Category Updated', `Category "${categoryName}" has been updated successfully.`);
-      } else {
-          showToast('success', 'Category Created', `Category "${categoryName}" has been created.`);
-      }
-
     } catch (err: any) {
       setError(err.message);
-      showToast('error', 'Error', err.message);
     }
-  };
-
-  const handleDeleteClick = (id: string) => {
-    setDeleteId(id);
   };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
-
-    const categoryToDelete = categories.find(c => c._id === deleteId);
-    const categoryName = categoryToDelete?.name || 'Category';
 
     try {
       const res = await fetch(`/api/categories/${deleteId}`, {
@@ -134,16 +110,14 @@ export default function CategoriesPage() {
       });
       
       if (res.ok) {
-        handleCloseModal(); // Ensure modal closes
+        showToast('success', 'Deleted', 'Category removed successfully');
+        setDeleteId(null);
         fetchCategories();
-        showToast('success', 'Category Deleted', `Category "${categoryName}" has been deleted.`);
       } else {
         showToast('error', 'Error', 'Failed to delete category');
       }
     } catch (err) {
-      showToast('error', 'Error', 'An unexpected error occurred');
-    } finally {
-      if (!isModalOpen) setDeleteId(null); 
+      showToast('error', 'Error', 'Failed to delete category');
     }
   };
 
@@ -153,260 +127,177 @@ export default function CategoriesPage() {
         <h1 className={styles.title}>Categories</h1>
       </div>
 
-      <div className={`${styles.controls} glass`}>
-        <div className={styles.searchGroup}>
-          <FiSearch color="#888" size={20} />
-          <input
-            type="text"
-            placeholder="Search categories..."
-            className={styles.searchInput}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+      <div>
+        <div className={`${styles.controls} glass`}>
+          <SearchInput 
+            value={search} 
+            onChange={setSearch} 
+            placeholder="Search categories..." 
           />
-        </div>
 
-        <div className={styles.controlActions}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '140px' }}>
-            <span style={{ fontSize: '0.9rem', color: '#666' }}>Show:</span>
-            <div style={{ width: '80px' }}>
-              <CustomDropdown 
-                options={[
-                  { value: '5', label: '5' },
-                  { value: '10', label: '10' },
-                  { value: '20', label: '20' }
-                ]}
-                value={String(limit)}
-                onChange={(val) => setLimit(Number(val))}
-              />
+          <div className={styles.controlActions}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '0.9rem', color: '#666' }}>Show:</span>
+              <div style={{ width: '80px' }}>
+                <CustomDropdown 
+                  options={[
+                    { value: '5', label: '5' },
+                    { value: '10', label: '10' },
+                    { value: '20', label: '20' }
+                  ]}
+                  value={String(limit)}
+                  onChange={(val) => setLimit(Number(val))}
+                />
+              </div>
             </div>
+
+            <button 
+              className="btn-primary" 
+              onClick={() => handleOpenModal()}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
+            >
+              <FiPlus /> Add Category
+            </button>
           </div>
-
-          <button 
-            className="btn-primary" 
-            onClick={() => handleOpenModal()}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }}
-          >
-            <FiPlus /> Add Category
-          </button>
         </div>
-      </div>
 
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Category Name</th>
-              <th>Status</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
-            ) : categories.length === 0 ? (
-              <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>No categories found</td></tr>
-            ) : (
-              categories.map((cat) => (
-                <tr key={cat._id}>
-                  <td style={{ fontWeight: 500 }}>{cat.name}</td>
-                  <td>
-                    <span className={cat.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>
-                      {cat.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className={styles.actions} style={{ justifyContent: 'flex-end' }}>
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnView}`}
-                        onClick={() => handleViewCategory(cat)}
-                        title="View Details"
-                      >
-                        <FiEye size={16} />
-                      </button>
-
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnEdit}`}
-                        onClick={() => handleOpenModal(cat)}
-                        title="Edit"
-                      >
-                        <FiEdit2 size={16} />
-                      </button>
-
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnDelete}`}
-                        onClick={() => handleDeleteClick(cat._id)}
-                        title="Delete"
-                      >
-                        <FiTrash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className={styles.pagination}>
-        <button 
-          className={styles.pageBtn} 
-          disabled={page === 1}
-          onClick={() => setPage(page - 1)}
-        >
-          &lt;
-        </button>
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-          <button
-            key={p}
-            className={`${styles.pageBtn} ${page === p ? styles.active : ''}`}
-            onClick={() => setPage(p)}
-          >
-            {p}
-          </button>
-        ))}
-        <button 
-          className={styles.pageBtn}
-          disabled={page === totalPages}
-          onClick={() => setPage(page + 1)}
-        >
-          &gt;
-        </button>
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Category Name</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
+              ) : categories.length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>No categories found</td></tr>
+              ) : (
+                categories.map((category) => (
+                  <tr key={category._id}>
+                    <td>{category.name}</td>
+                    <td>
+                      <StatusBadge status={category.status} />
+                    </td>
+                    <td>
+                      <ActionButtons 
+                          onView={() => setViewingCategory(category)}
+                          onEdit={() => handleOpenModal(category)}
+                          onDelete={() => handleDeleteClick(category._id, category.name)}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        <Pagination 
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+        />
       </div>
 
       {/* Add/Edit Modal */}
-      {isModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                {editingCategory ? 'Edit Category' : 'New Category'}
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
-            </div>
-
-            {error && <div className={styles.error} style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
-
-            <form onSubmit={handleSubmit}>
-              <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
-                <div>
-                  <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem'}}>Category Name</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder="e.g. Nail Polish"
-                  />
-                </div>
-                
-                <div>
-                  <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem'}}>Status</label>
-                  <CustomDropdown
-                    options={[
-                      { value: 'ACTIVE', label: 'ACTIVE' },
-                      { value: 'INACTIVE', label: 'INACTIVE' }
-                    ]}
-                    value={formData.status}
-                    onChange={(value: string) => setFormData({ ...formData, status: value as 'ACTIVE' | 'INACTIVE' })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.modalActions}>
-                <button type="button" className={styles.btnCancel} onClick={handleCloseModal}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  {editingCategory ? 'Update' : 'Save'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingCategory ? 'Edit Category' : 'Add Category'}
+      >
+        <form onSubmit={handleSubmit}>
+          {error && <div className={styles.errorMsg}>{error}</div>}
+          
+          <div className={styles.formGroup}>
+            <label>Category Name</label>
+            <input 
+              type="text" 
+              value={formData.name} 
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              required
+              className="input-field"
+              placeholder="e.g. Nail Polish"
+            />
           </div>
-        </div>
-      )}
+
+          <div className={styles.formGroup}>
+            <label>Status</label>
+            <div className={styles.selectWrapper}>
+                <CustomDropdown 
+                  options={[
+                    { value: 'ACTIVE', label: 'Active' },
+                    { value: 'INACTIVE', label: 'Inactive' }
+                  ]}
+                  value={formData.status}
+                  onChange={(val) => setFormData({...formData, status: val as any})}
+                />
+            </div>
+          </div>
+
+          <div className={styles.modalActions}>
+             <button type="button" className={styles.btnCancel} onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary">
+              {editingCategory ? 'Update' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* View Details Modal */}
-      {viewingCategory && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                Category Details
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
+      <Modal
+        isOpen={!!viewingCategory}
+        onClose={() => setViewingCategory(null)}
+        title="Category Details"
+      >
+         {viewingCategory && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Name</span>
+                    <span className={styles.detailValue}>{viewingCategory.name}</span>
+                </div>
+                 <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Status</span>
+                    <StatusBadge status={viewingCategory.status} />
+                </div>
+                 <div className={styles.modalActions} style={{ marginTop: '1.5rem' }}>
+                    <button className={styles.btnCancel} onClick={() => setViewingCategory(null)}>Close</button>
+                     <button className="btn-primary" onClick={() => {
+                        setViewingCategory(null);
+                        handleOpenModal(viewingCategory);
+                    }}>Edit Category</button>
+                </div>
             </div>
-
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Name</span>
-              <span className={styles.detailValue}>{viewingCategory.name}</span>
-            </div>
-
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Status</span>
-              <div style={{ marginTop: '0.5rem' }}>
-                <span className={viewingCategory.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>
-                  {viewingCategory.status}
-                </span>
-              </div>
-            </div>
-
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Category ID</span>
-              <span className={styles.detailValue} style={{ fontSize: '0.9rem', fontFamily: 'monospace' }}>
-                {viewingCategory._id}
-              </span>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button className={styles.btnCancel} onClick={handleCloseModal}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+         )}
+      </Modal>
 
       {/* Delete Confirmation Modal */}
-      {deleteId && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modal} glass`} style={{ maxWidth: '400px' }}>
-            <div className={styles.modalHeader}>
-              <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                Delete Category?
-              </h2>
-              <button className={styles.closeBtn} onClick={handleCloseModal}>
-                <FiX />
-              </button>
-            </div>
-            
-            <p style={{ color: 'var(--foreground)', marginBottom: '2rem', lineHeight: '1.6', fontSize: '1.1rem' }}>
-              Are you sure you want to delete <strong style={{ textDecoration: 'underline', textDecorationColor: 'var(--primary)', textUnderlineOffset: '4px' }}>{categories.find(c => c._id === deleteId)?.name || 'this category'}</strong>?
-            </p>
-
-            <div className={styles.modalActions}>
-              <button 
-                className={styles.btnCancel} 
-                onClick={handleCloseModal}
-              >
-                Cancel
-              </button>
-              <button 
+      <Modal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        title="Delete Category?"
+        width="400px"
+      >
+        <p style={{ color: 'var(--foreground)', marginBottom: '2rem', lineHeight: '1.6' }}>
+            Are you sure you want to delete <strong style={{ textDecoration: 'underline' }}>{categories.find(c => c._id === deleteId)?.name}</strong>?
+            <br/>This action cannot be undone.
+        </p>
+        <div className={styles.modalActions}>
+            <button className={styles.btnCancel} onClick={() => setDeleteId(null)}>Cancel</button>
+            <button 
                 className="btn-primary" 
-                style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1.5rem' }}
+                style={{ background: '#ef4444', color: 'white', border: 'none' }}
                 onClick={confirmDelete}
-              >
+            >
                 Delete
-              </button>
-            </div>
-          </div>
+            </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

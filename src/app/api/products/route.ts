@@ -44,6 +44,7 @@ export async function GET(req: Request) {
     const total = await Product.countDocuments(query);
 
     return NextResponse.json({
+      success: true,
       data: products,
       pagination: {
         total,

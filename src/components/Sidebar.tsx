@@ -4,7 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { FiHome, FiBox, FiGrid, FiLogOut, FiShoppingCart } from 'react-icons/fi';
+import { FiHome, FiBox, FiGrid, FiLogOut, FiShoppingCart, FiBook } from 'react-icons/fi';
+import { FaRupeeSign } from 'react-icons/fa';
 import ThemeToggle from './ThemeToggle';
 import styles from './Sidebar.module.css';
 
@@ -17,6 +18,8 @@ export default function Sidebar() {
     { name: 'Categories', href: '/dashboard/categories', icon: FiGrid },
     { name: 'Products', href: '/dashboard/products', icon: FiBox },
     { name: 'Sales', href: '/dashboard/sales', icon: FiShoppingCart },
+    { name: 'Expenses', href: '/dashboard/expenses', icon: FaRupeeSign },
+    { name: 'Ledger', href: '/dashboard/ledger', icon: FiBook },
   ];
 
   return (

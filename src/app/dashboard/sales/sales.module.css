@@ -19,14 +19,19 @@
 }
 
 /* Inherit global glass class in component */
+/* Inherit global glass class in component */
+/* Inherit global glass class in component */
 .controls {
   display: flex;
   align-items: center;
+  justify-content: space-between; /* Push content to edges */
   padding: 1rem 1.5rem;
-  border-radius: 1.5rem;
+  border-radius: 1.5rem 1.5rem 0 0;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-bottom: none;
   gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .controlActions {
@@ -52,32 +57,18 @@
   font-size: 1rem;
   color: var(--foreground);
   width: 100%;
-  padding: 0.5rem 0.5rem 0.5rem 0;
-  transition: all 0.2s;
-}
-
-.searchInput::placeholder {
-  color: #888;
+  padding: 0.5rem 0;
 }
 
 .searchInput:focus {
   outline: none;
   border-bottom-color: var(--primary);
-  background: transparent;
-  box-shadow: none;
 }
 
-.limitSelect {
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border);
-  background: transparent;
-  font-size: 0.9rem;
-  color: var(--foreground);
-}
+/* ... existing styles ... */
 
 .tableContainer {
-  border-radius: 1.5rem;
+  border-radius: 0 0 1.5rem 1.5rem;
   overflow: hidden;
   overflow-x: auto; /* Enable horizontal scrolling */
   background: var(--surface);
@@ -98,10 +89,10 @@
 }
 
 .table th {
-  background: var(--surface-hover);
+  background: rgba(0, 0, 0, 0.2);
   font-weight: 600;
-  color: var(--foreground);
-  font-size: 0.9rem;
+  color: #bbb;
+  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -110,8 +101,12 @@
   border-bottom: none;
 }
 
+.table td {
+  background: var(--background);
+}
+
 .table tr:hover td {
-  background: rgba(var(--foreground-rgb), 0.01);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .statusCompleted {
@@ -437,4 +432,30 @@
 .removeItemBtn:hover {
     opacity: 1;
     transform: scale(1.1);
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--foreground);
+  font-size: 0.95rem;
+}
+
+.viewGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .viewGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }

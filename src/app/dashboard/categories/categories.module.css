@@ -21,11 +21,14 @@
 .controls {
   display: flex;
   align-items: center;
+  justify-content: space-between; /* Push content to edges */
   padding: 1rem 1.5rem;
-  border-radius: 1.5rem;
+  border-radius: 1.5rem 1.5rem 0 0;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-bottom: none;
   gap: 1.5rem;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
 }
 
 .controlActions {
@@ -35,51 +38,15 @@
   flex-shrink: 0;
 }
 
-.searchGroup {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  flex-grow: 1;
-}
-
-.searchInput {
-  max-width: 300px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid var(--border);
-  border-radius: 0;
-  font-size: 1rem;
-  color: var(--foreground);
-  width: 100%;
-  padding: 0.5rem 0.5rem 0.5rem 0;
-  transition: all 0.2s;
-}
-
-.searchInput::placeholder {
-  color: #888;
-}
-
-.searchInput:focus {
-  outline: none;
-  border-bottom-color: var(--primary);
-  background: transparent;
-}
-
-.limitSelect {
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border);
-  background: transparent;
-  font-size: 0.9rem;
-  color: var(--foreground);
-}
+/* ... existing styles ... */
 
 .tableContainer {
-  border-radius: 1.5rem;
+  border-radius: 0 0 1.5rem 1.5rem; /* Bottom rounded only */
   overflow: hidden;
   overflow-x: auto; /* Horizontal scroll */
   background: var(--surface);
   border: 1px solid var(--border);
+  /* Top border is provided by the container logic or shared border */
   box-shadow: 0 4px 20px rgba(0,0,0,0.02);
 }
 
@@ -96,10 +63,10 @@
 }
 
 .table th {
-  background: var(--surface-hover);
+  background: rgba(0, 0, 0, 0.2); /* Shade 2 */
   font-weight: 600;
-  color: var(--foreground);
-  font-size: 0.9rem;
+  color: #bbb;
+  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -108,8 +75,14 @@
   border-bottom: none;
 }
 
+.table td {
+  background: var(--background); /* Shade 3: Theme Background */
+  color: var(--foreground);
+}
+
 .table tr:hover td {
-  background: rgba(var(--foreground-rgb), 0.01);
+  background: rgba(255, 255, 255, 0.05);
+  transition: background 0.2s;
 }
 
 .statusActive {
@@ -217,9 +190,29 @@
   box-shadow: 0 4px 12px rgba(252, 107, 186, 0.4);
 }
 
-.pageBtn:not(:disabled):not(.active):hover {
-  background: var(--surface-hover);
-  transform: translateY(-1px);
+
+.searchGroup {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-grow: 1;
+}
+
+.searchInput {
+  max-width: 300px;
+  background: transparent;
+  border: none; /* Reset standard border */
+  border-bottom: 2px solid var(--border); /* Match Expenses underline style */
+  border-radius: 0;
+  font-size: 1rem;
+  color: var(--foreground);
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-bottom-color: var(--primary);
 }
 
 
@@ -299,10 +292,11 @@
   padding: 0.75rem 1.5rem;
   border-radius: 9999px;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface);
   font-weight: 600;
   transition: all 0.2s;
   color: var(--foreground);
+  cursor: pointer;
 }
 
 .btnCancel:hover {
@@ -332,4 +326,16 @@
   font-size: 1.1rem;
   font-weight: 500;
   color: var(--foreground);
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--foreground);
+  font-size: 0.95rem;
 }
