@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
+import { generateOrderId } from '@/lib/orderUtils';
 
 export async function GET(req: Request) {
   try {
@@ -46,31 +47,8 @@ export async function POST(req: Request) {
     await dbConnect();
     const body = await req.json();
 
-    // Format: INV{YYYY}_(SEQUENCE)
-    const currentYear = new Date().getFullYear();
-    const prefix = `INV${currentYear}_`;
-
-    // Find the latest order for the CURRENT YEAR to ensure sequence resets/continues correctly per year
-    const latestOrder = await Order.findOne({ 
-      orderId: { $regex: `^${prefix}` } 
-    }).sort({ createdAt: -1 });
-
-    let nextSequence = 0;
-    if (latestOrder && latestOrder.orderId) {
-      // Extract sequence part (everything after the prefix)
-      // e.g. INV2026_0005 -> 0005
-      const parts = latestOrder.orderId.split('_');
-      if (parts.length === 2) {
-        const lastSeq = parseInt(parts[1], 10);
-        if (!isNaN(lastSeq)) {
-          nextSequence = lastSeq + 1;
-        }
-      }
-    }
-
-    // Format as at least 4 digits: 0000, 0001 ... 9999, 10000
-    const sequenceStr = nextSequence.toString().padStart(4, '0');
-    const uniqueId = `${prefix}${sequenceStr}`;
+    // Format: INV-YYYY-MM-XXXX
+    const uniqueId = await generateOrderId('INV');
 
     const order = await Order.create({ ...body, orderId: uniqueId });
     return NextResponse.json({ success: true, data: order }, { status: 201 });

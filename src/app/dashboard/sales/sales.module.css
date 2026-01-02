@@ -117,7 +117,7 @@
 .statusCompleted {
   background: rgba(34, 197, 94, 0.15);
   color: #10b981;
-  padding: 0.4rem 1rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 700;
@@ -126,18 +126,11 @@
   align-items: center;
   gap: 0.4rem;
 }
-.statusCompleted::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
-}
 
 .statusPending {
   background: rgba(234, 179, 8, 0.15);
   color: #eab308;
-  padding: 0.4rem 1rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 700;
@@ -146,32 +139,44 @@
   align-items: center;
   gap: 0.4rem;
 }
-.statusPending::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
-}
 
-.statusCancelled {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  padding: 0.4rem 1rem;
+.statusReturned {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  padding: 0.35rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 700;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.2);
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
 }
-.statusCancelled::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
+
+.statusRefunded {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.statusCancelled {
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 /* Action Buttons */
@@ -217,6 +222,15 @@
 }
 .btnDelete:hover {
   background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
+}
+
+.btnReturn {
+  color: #f59e0b; /* Yellow/Amber */
+  background: rgba(245, 158, 11, 0.1);
+}
+.btnReturn:hover {
+  background: rgba(245, 158, 11, 0.2);
   transform: translateY(-2px);
 }
 

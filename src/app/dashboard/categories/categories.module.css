@@ -125,14 +125,6 @@
   gap: 0.4rem;
 }
 
-.statusActive::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
-}
-
 .statusInactive {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
@@ -144,14 +136,6 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-}
-
-.statusInactive::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
 }
 
 /* Action Buttons */

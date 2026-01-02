@@ -7,6 +7,38 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
     const params = await props.params;
     await dbConnect();
     const body = await req.json();
+
+    // Check if we are marking a return
+    if (body.status === 'RETURNED') {
+      const existingOrder = await Order.findById(params.id);
+      if (!existingOrder) {
+        return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
+      }
+
+      // If already returned, don't double process
+      if (existingOrder.status === 'RETURNED') {
+        return NextResponse.json({ success: false, message: 'Order is already returned' }, { status: 400 });
+      }
+
+      // Add returnType to body
+      body.returnType = body.restock ? 'RESTOCK' : 'REFUND_ONLY';
+
+      // Restock items only if requested
+      if (body.restock) {
+        const { default: Product } = await import('@/models/Product');
+        for (const item of existingOrder.items) {
+            // Try to find product by name
+            let product = await Product.findOne({ name: item.productName });
+            
+            // Fallback: if we had SKU in future, we'd check that too
+            if (product) {
+                product.quantity += item.quantity;
+                await product.save();
+            }
+        }
+      }
+    }
+
     const order = await Order.findByIdAndUpdate(params.id, body, {
       new: true,
       runValidators: true,

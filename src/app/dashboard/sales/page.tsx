@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiEye, FiMinus } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiEye, FiMinus, FiCornerUpLeft } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import { useToast } from '@/components/ui/Toast';
 import styles from './sales.module.css';
@@ -20,9 +20,15 @@ interface Order {
   orderId: string;
   customerName: string;
   mobileNumber: string;
+  title: string;
   items: OrderItem[];
   discount: number;
   totalAmount: number;
+  status?: string;
+  type?: string;
+  originalOrderId?: string;
+  hasReturn?: boolean;
+  returnType?: string;
   createdAt: string;
 }
 
@@ -113,8 +119,11 @@ export default function SalesPage() {
 
 
 
-  // Delete State
+  // Delete & Return State
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [returnOrder, setReturnOrder] = useState<Order | null>(null); // Full order being returned
+  const [returnItems, setReturnItems] = useState<OrderItem[]>([]); // Items selected for return
+  const [returnAction, setReturnAction] = useState<'restock' | 'refund'>('restock');
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -186,10 +195,69 @@ export default function SalesPage() {
     setIsModalOpen(false);
     setEditingOrder(null);
     setViewingOrder(null);
+    setViewingOrder(null);
     setDeleteId(null);
+    setReturnOrder(null);
   };
 
   // Form Handlers
+  const handleReturnClick = (order: Order, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReturnOrder(order);
+    // Initialize return items with 0 quantity but keeping details
+    setReturnItems(order.items.map(item => ({
+        ...item,
+        quantity: 0 // Default to 0, user selects what to return
+    })));
+  };
+  
+  const handleReturnItemChange = (index: number, delta: number) => {
+      if (!returnOrder) return;
+      const maxQty = returnOrder.items[index].quantity;
+      const newItems = [...returnItems];
+      const currentQty = newItems[index].quantity;
+      const newQty = Math.max(0, Math.min(maxQty, currentQty + delta));
+      
+      newItems[index].quantity = newQty;
+      setReturnItems(newItems);
+  };
+
+  const confirmReturn = async () => {
+      if (!returnOrder) return;
+      
+      const itemsToReturn = returnItems.filter(i => i.quantity > 0);
+      if (itemsToReturn.length === 0) {
+          showToast('error', 'Selection Required', 'Please select at least one item to return.');
+          return;
+      }
+
+      try {
+        const res = await fetch(`/api/sales/return`, { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                originalOrderId: returnOrder.orderId,
+                items: itemsToReturn,
+                returnType: returnAction === 'restock' ? 'RESTOCK' : 'REFUND_ONLY'
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast('success', 'Return Processed', `Return Invoice ${data.data.orderId} created.`);
+            fetchOrders(); // Refresh list
+            handleCloseModal(); // Close modals
+        } else {
+            showToast('error', 'Error', data.message || 'Failed to process return');
+        }
+      } catch (err) {
+        showToast('error', 'Error', 'Failed to process return');
+      } finally {
+          setReturnOrder(null);
+      }
+  };
+
   const handleItemChange = (index: number, field: keyof OrderItem, value: any) => {
       const newItems = [...formData.items];
       const item = { ...newItems[index] };
@@ -302,7 +370,8 @@ export default function SalesPage() {
     }
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setDeleteId(id);
   };
 
@@ -331,12 +400,15 @@ export default function SalesPage() {
     }
   };
 
-  const getStatusClass = (status: string) => {
-      switch(status) {
-          case 'COMPLETED': return styles.statusCompleted;
-          case 'CANCELLED': return styles.statusCancelled;
-          default: return styles.statusPending;
+  const getStatusInfo = (order: Order) => {
+      if (order.status === 'RETURNED') {
+          if (order.returnType === 'REFUND_ONLY') {
+              return { label: 'REFUND', className: styles.statusRefunded };
+          }
+          return { label: 'RETURN', className: styles.statusReturned };
       }
+      if (order.status === 'CANCELLED') return { label: 'CANCELLED', className: styles.statusCancelled };
+      return { label: 'COMPLETED', className: styles.statusCompleted };
   };
 
   return (
@@ -390,58 +462,84 @@ export default function SalesPage() {
               <th>Sale ID</th>
               <th>Customer</th>
               <th>Mobile Number</th>
+              <th>Status</th>
               <th>Total Amount</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center' }}>Loading...</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center' }}>Loading...</td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center' }}>No sales found</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center' }}>No sales found</td></tr>
             ) : (
               orders.map((order) => (
                 <tr key={order._id}>
                   <td>
-                      <a 
-                        href={`/invoice/${order._id}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        style={{ 
-                            fontFamily: 'monospace', 
-                            fontWeight: 600, 
-                            color: 'var(--primary)', 
-                            textDecoration: 'underline',
-                            cursor: 'pointer' 
-                        }}
-                      >
-                        {order.orderId}
-                      </a>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <a 
+                            href={`/invoice/${order._id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ 
+                                fontFamily: 'monospace', 
+                                fontWeight: 600, 
+                                color: 'var(--primary)', 
+                                textDecoration: 'underline',
+                                cursor: 'pointer' 
+                            }}
+                          >
+                            {order.orderId}
+                          </a>
+                          {order.originalOrderId && (
+                              <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>
+                                  Ref: <span style={{ fontFamily: 'monospace' }}>{order.originalOrderId}</span>
+                              </span>
+                          )}
+                      </div>
                   </td>
                   <td>{order.customerName}</td>
                   <td style={{ fontFamily: 'monospace' }}>{order.mobileNumber}</td>
+                  <td>
+                    {(() => {
+                        const { label, className } = getStatusInfo(order);
+                        return <span className={className}>{label}</span>;
+                    })()}
+                  </td>
                   <td>₹{order.totalAmount}</td>
                   <td>
                     <div className={styles.actions}>
                       <button 
                         className={`${styles.actionBtn} ${styles.btnView}`}
-                        onClick={() => handleViewOrder(order)}
+                        onClick={(e) => { e.stopPropagation(); handleViewOrder(order); }}
                         title="View Details"
                       >
                         <FiEye size={16} />
                       </button>
 
-                      <button 
-                        className={`${styles.actionBtn} ${styles.btnEdit}`}
-                        onClick={() => handleOpenModal(order)}
-                        title="Edit"
-                      >
-                        <FiEdit2 size={16} />
-                      </button>
+                      {order.status !== 'RETURNED' && (
+                        <button 
+                            className={`${styles.actionBtn} ${styles.btnEdit}`}
+                            onClick={(e) => { e.stopPropagation(); handleOpenModal(order); }}
+                            title="Edit"
+                        >
+                            <FiEdit2 size={16} />
+                        </button>
+                      )}
+
+                      {order.status !== 'RETURNED' && order.type !== 'RETURN' && !order.hasReturn && (
+                        <button
+                            className={`${styles.actionBtn} ${styles.btnReturn}`}
+                            onClick={(e) => handleReturnClick(order, e)}
+                            title="Return / Refund"
+                        >
+                            <FiCornerUpLeft size={16} />
+                        </button>
+                      )}
 
                       <button 
                         className={`${styles.actionBtn} ${styles.btnDelete}`}
-                        onClick={() => handleDeleteClick(order._id)}
+                        onClick={(e) => handleDeleteClick(order._id, e)}
                         title="Delete"
                       >
                         <FiTrash2 size={16} />
@@ -726,6 +824,15 @@ export default function SalesPage() {
                     <span className={styles.detailValue} style={{ fontFamily: 'monospace' }}>{viewingOrder.mobileNumber}</span>
                 </div>
                 <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Status</span>
+                    <span className={styles.detailValue}>
+                        {(() => {
+                            const { label, className } = getStatusInfo(viewingOrder);
+                            return <span className={className}>{label}</span>;
+                        })()}
+                    </span>
+                </div>
+                <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Date</span>
                     <span className={styles.detailValue}>{formatDateIST(viewingOrder.createdAt)}</span>
                 </div>
@@ -810,6 +917,161 @@ export default function SalesPage() {
         </div>
       )}
 
+      {/* Partial Return Modal */}
+      {returnOrder && (
+        <div className={styles.modalOverlay}>
+            <div className={`${styles.modal} glass`} style={{ maxWidth: '600px' }}>
+                <div className={styles.modalHeader}>
+                    <h2 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                        Create Return Invoice
+                    </h2>
+                    <button className={styles.closeBtn} onClick={handleCloseModal}>
+                        <FiX />
+                    </button>
+                </div>
+                <div style={{ marginBottom: '1.5rem', fontSize: '0.95rem', color: '#666' }}>
+                    Creating return for order <strong style={{ fontFamily: 'monospace', color: 'var(--foreground)' }}>{returnOrder.orderId}</strong>
+                </div>
+
+                {/* Items Selection Table */}
+                <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '12px', marginBottom: '1.5rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                        <thead style={{ background: 'var(--surface-hover)', position: 'sticky', top: 0 }}>
+                            <tr>
+                                <th style={{ padding: '10px 15px', textAlign: 'left', fontWeight: 600 }}>Item</th>
+                                <th style={{ padding: '10px 15px', textAlign: 'center', fontWeight: 600 }}>Sold</th>
+                                <th style={{ padding: '10px 15px', textAlign: 'center', fontWeight: 600 }}>Return Qty</th>
+                                <th style={{ padding: '10px 15px', textAlign: 'right', fontWeight: 600 }}>Refund</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {returnOrder.items.map((item, idx) => {
+                                const returnItem = returnItems[idx] || { quantity: 0 };
+                                const isSelected = returnItem.quantity > 0;
+                                
+                                return (
+                                <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: isSelected ? 'rgba(var(--primary-rgb), 0.02)' : 'transparent' }}>
+                                    <td style={{ padding: '10px 15px' }}>
+                                        <div style={{ fontWeight: 500 }}>{item.productName}</div>
+                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>₹{item.price}</div>
+                                    </td>
+                                    <td style={{ padding: '10px 15px', textAlign: 'center', color: '#666' }}>
+                                        {item.quantity}
+                                    </td>
+                                    <td style={{ padding: '10px 15px', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleReturnItemChange(idx, -1)}
+                                                className={styles.pageBtn}
+                                                style={{ width: '28px', height: '28px', fontSize: '1rem', padding: 0 }}
+                                                disabled={returnItem.quantity <= 0}
+                                            >
+                                                -
+                                            </button>
+                                            <span style={{ width: '20px', textAlign: 'center', fontWeight: 600 }}>{returnItem.quantity}</span>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleReturnItemChange(idx, 1)}
+                                                className={styles.pageBtn}
+                                                style={{ width: '28px', height: '28px', fontSize: '1rem', padding: 0, color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                                                disabled={returnItem.quantity >= item.quantity}
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '10px 15px', textAlign: 'right', fontWeight: 600, color: isSelected ? 'var(--primary)' : 'inherit' }}>
+                                        ₹{returnItem.quantity * item.price}
+                                    </td>
+                                </tr>
+                            )})}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '1rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                     <span style={{ fontWeight: 600, color: '#666' }}>Total Refund Amount:</span>
+                     <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>
+                        ₹{returnItems.reduce((sum, item, idx) => sum + (item.quantity * (returnOrder.items[idx]?.price || 0)), 0)}
+                     </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <label style={{ 
+                        flex: 1,
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.75rem', 
+                        padding: '1rem', 
+                        border: `1px solid ${returnAction === 'restock' ? 'var(--primary)' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        background: returnAction === 'restock' ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent',
+                        transition: 'all 0.2s'
+                    }}
+                    onClick={() => setReturnAction('restock')}
+                    >
+                        <input 
+                            type="radio" 
+                            name="returnAction" 
+                            checked={returnAction === 'restock'} 
+                            onChange={() => setReturnAction('restock')} 
+                            style={{ accentColor: 'var(--primary)', transform: 'scale(1.2)' }}
+                        />
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--foreground)' }}>Return Stock</div>
+                            <div style={{ fontSize: '0.75rem', color: '#888' }}>Items added back to inventory.</div>
+                        </div>
+                    </label>
+
+                    <label style={{ 
+                        flex: 1,
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.75rem', 
+                        padding: '1rem', 
+                        border: `1px solid ${returnAction === 'refund' ? 'var(--primary)' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        background: returnAction === 'refund' ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent',
+                        transition: 'all 0.2s'
+                    }}
+                    onClick={() => setReturnAction('refund')}
+                    >
+                        <input 
+                            type="radio" 
+                            name="returnAction" 
+                            checked={returnAction === 'refund'} 
+                            onChange={() => setReturnAction('refund')} 
+                            style={{ accentColor: 'var(--primary)', transform: 'scale(1.2)' }}
+                        />
+                         <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--foreground)' }}>Refund Only</div>
+                            <div style={{ fontSize: '0.75rem', color: '#888' }}>Money refunded, stock unchanged.</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div className={styles.modalActions}>
+                    <button 
+                        className={styles.btnCancel}
+                        onClick={handleCloseModal}
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        className="btn-primary" 
+                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1.5rem' }}
+                        onClick={confirmReturn}
+                        disabled={returnItems.every(i => i.quantity === 0)}
+                    >
+                        Confirm Return
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

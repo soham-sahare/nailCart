@@ -21,7 +21,13 @@ interface Order {
   items: OrderItem[];
   discount: number;
   totalAmount: number;
+
+  status: string;
+  type?: string;
+  originalOrderId?: string;
+  returnType?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 
@@ -88,6 +94,18 @@ export default function InvoicePage() {
      };
   };
 
+
+
+  const isReturned = order?.type === 'RETURN' || order?.status === 'RETURNED'; // Support both new and old methods
+  const isRefundOnly = order?.returnType === 'REFUND_ONLY';
+  
+  const invoiceTitle = isReturned 
+    ? (isRefundOnly ? 'REFUND RECEIPT' : 'RETURN INVOICE') 
+    : 'INVOICE';
+
+  // Use amber/yellow for return to match dashboard
+  const themeColor = isReturned ? '#f59e0b' : 'var(--primary)'; 
+
   return (
     <div className={styles.container}>
       {/* ... header ... */}
@@ -97,22 +115,32 @@ export default function InvoicePage() {
 
       <div className={styles.content}>
         {/* Header */}
-        <div className={styles.header}>
-            <div className={styles.customerInfo}>
-                <div className={styles.label}>Invoice No.</div>
-                <div className={styles.value} style={{ fontWeight: 700 }}>{order.orderId}</div>
-    
-                <div className={styles.label}>Bill To</div>
-                <div className={styles.value} style={{ fontWeight: 700 }}>
-                    {order.customerName} <br/> 
-                    <span style={{ fontWeight: 400 }}>{order.mobileNumber || 'N/A'}</span>
-                </div>    
-                   
-                <div className={styles.label}>Date</div>
-                <div className={styles.value}>{formatDateIST(order.createdAt)}</div>
+          <div className={styles.header}>
+            <div className={styles.logoSection}>
+              <h1 className={styles.brandName}>NAILCART</h1>
+              <p className={styles.brandSubtitle}>Premium Nail Supply</p>
             </div>
+            <div className={styles.invoiceInfo}>
+              <h2 className={styles.invoiceTitle} style={{ color: themeColor }}>{invoiceTitle}</h2>
+              <div className={styles.infoRow}>
+                <span>Invoice No:</span>
+                <span className={styles.mono}>{order.orderId}</span>
+              </div>
+              {/* Reference to Data */}
+              {order.originalOrderId && (
+                  <div className={styles.infoRow} style={{ marginTop: '0.2rem', fontSize: '0.9rem', color: '#666' }}>
+                    <span>Refers to:</span>
+                    <span className={styles.mono}>{order.originalOrderId}</span>
+                  </div>
+              )}
 
-            <div className={styles.ownerInfo}>
+              <div className={styles.infoRow} style={{ marginTop: '0.5rem' }}>
+                <span>Date:</span>
+                <span>{formatDateIST(order.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+          <div className={styles.ownerInfo}>
                 <Image src="/logo.jpg" alt="Logo" width={80} height={80} style={{ borderRadius: '50%', marginBottom: '10px' }} />
                 <div className={styles.title}>NailCart</div>
                 <span style={{ fontSize: '0.9rem', color: '#333', fontWeight: 600 }}>GSTIN: 27ABCDE1234F1Z5</span>
@@ -124,7 +152,7 @@ export default function InvoicePage() {
                     +91 8600220632
                 </div>
             </div>
-        </div>
+
 
         {/* Items Table with Footer Totals */}
         <table className={styles.table}>

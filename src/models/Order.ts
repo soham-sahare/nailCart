@@ -33,6 +33,27 @@ const OrderSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  status: {
+    type: String,
+    enum: ['COMPLETED', 'RETURNED', 'CANCELLED'],
+    default: 'COMPLETED',
+  },
+  type: {
+      type: String,
+      enum: ['SALE', 'RETURN'], // New field to distinguish Sales vs Returns
+      default: 'SALE'
+  },
+  originalOrderId: {
+      type: String, // ID of the original order if this is a return
+  },
+  hasReturn: {
+      type: Boolean,
+      default: false
+  },
+  returnType: {
+    type: String,
+    enum: ['RESTOCK', 'REFUND_ONLY'],
+  },
 }, { timestamps: true });
 
 // Prevent Mongoose Recompilation Error in Development
