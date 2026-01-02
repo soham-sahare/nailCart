@@ -21,26 +21,24 @@ export async function POST(req: Request) {
     const returnItems = [];
     
     for (const item of items) {
-        // Find original product to get current price/details is redundant if we trust FE, 
-        // but better to cross check or just use passed data for simplicity in MVP
-        // We will trust the passed item structure which should mirror OrderItem
+        // Check for Cost Price from Product for accurate Profit calculation on returns
+        // We need to know the cost of the item being returned.
+        const product = await Product.findOne({ name: item.productName });
         
         refundAmount += (item.price * item.quantity);
         returnItems.push({
             productName: item.productName,
             quantity: item.quantity,
             price: item.price,
+            costPrice: product ? product.costPrice : 0, // Save cost price for profit calculation
             sku: item.sku,
             category: item.category
         });
 
         // Update Stock if RESTOCK
-        if (returnType === 'RESTOCK') {
-             const product = await Product.findOne({ name: item.productName });
-             if (product) {
-                 product.quantity += item.quantity;
-                 await product.save();
-             }
+        if (returnType === 'RESTOCK' && product) {
+             product.quantity += item.quantity;
+             await product.save();
         }
     }
 

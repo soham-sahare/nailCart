@@ -38,7 +38,8 @@ export async function GET(req: Request) {
       .populate('category', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Optimize read
 
     const total = await Product.countDocuments(query);
 

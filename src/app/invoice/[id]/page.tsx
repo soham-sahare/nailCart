@@ -116,42 +116,55 @@ export default function InvoicePage() {
       <div className={styles.content}>
         {/* Header */}
           <div className={styles.header}>
-            <div className={styles.logoSection}>
-              <h1 className={styles.brandName}>NAILCART</h1>
-              <p className={styles.brandSubtitle}>Premium Nail Supply</p>
-            </div>
-            <div className={styles.invoiceInfo}>
-              <h2 className={styles.invoiceTitle} style={{ color: themeColor }}>{invoiceTitle}</h2>
-              <div className={styles.infoRow}>
-                <span>Invoice No:</span>
-                <span className={styles.mono}>{order.orderId}</span>
-              </div>
-              {/* Reference to Data */}
-              {order.originalOrderId && (
-                  <div className={styles.infoRow} style={{ marginTop: '0.2rem', fontSize: '0.9rem', color: '#666' }}>
-                    <span>Refers to:</span>
-                    <span className={styles.mono}>{order.originalOrderId}</span>
+            {/* LEFT COLUMN: Invoice No + Customer Info */}
+            <div style={{ textAlign: 'left', flex: 1 }}>
+              
+               {/* Invoice IDs (Top Left) */}
+              <div style={{ marginBottom: '2rem' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {isReturned ? (isRefundOnly ? 'REFUND ID' : 'RETURN INVOICE NO') : 'INVOICE NO'}
                   </div>
-              )}
+                  <div className={styles.mono} style={{ fontSize: '1.25rem', fontWeight: 700, color: '#000' }}>
+                      {order.orderId}
+                  </div>
+                   {/* Reference ID for Returns */}
+                  {(isReturned && order.originalOrderId) && (
+                      <div style={{ marginTop: '0.25rem' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#888', marginRight: '0.5rem' }}>Ref:</span>
+                          <span className={styles.mono} style={{ fontSize: '0.9rem', fontWeight: 600, color: '#555' }}>
+                              #{order.originalOrderId}
+                          </span>
+                      </div>
+                  )}
+              </div>
 
-              <div className={styles.infoRow} style={{ marginTop: '0.5rem' }}>
-                <span>Date:</span>
-                <span>{formatDateIST(order.createdAt)}</span>
+              {/* Customer Info (Left) */}
+              <div>
+                  <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill To</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, textTransform: 'capitalize', marginBottom: '2px' }}>{order.customerName}</div>
+                  <div style={{ fontSize: '1rem', color: '#444', marginBottom: '8px' }}>{order.mobileNumber}</div>
+                  
+                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                      Date: <span style={{ fontWeight: 600, color: '#000' }}>{formatDateIST(order.createdAt)}</span>
+                  </div>
               </div>
             </div>
-          </div>
-          <div className={styles.ownerInfo}>
-                <Image src="/logo.jpg" alt="Logo" width={80} height={80} style={{ borderRadius: '50%', marginBottom: '10px' }} />
-                <div className={styles.title}>NailCart</div>
-                <span style={{ fontSize: '0.9rem', color: '#333', fontWeight: 600 }}>GSTIN: 27ABCDE1234F1Z5</span>
 
-                <div className={styles.value}>
-                    Shraddha Chowk, Plot No. 14, Opp. SS Collection,<br />
-                    Chakradhar Nagar, Jawahar Nagar, Ayodhya Nagar,<br />
+            {/* RIGHT COLUMN: Store Info */}
+            <div className={styles.ownerInfo} style={{ flex: 1, textAlign: 'right' }}>
+                <Image src="/logo.jpg" alt="Logo" width={70} height={70} style={{ borderRadius: '50%', marginBottom: '10px' }} />
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em', marginBottom: '4px' }}>NailCart</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#444', marginBottom: '10px' }}>GSTIN: 27ABCDE1234F1Z5</div>
+
+                <div className={styles.value} style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#555' }}>
+                    Shraddha Chowk, Plot No. 14,<br />
+                    Opp. SS Collection, Chakradhar Nagar,<br />
+                    Jawahar Nagar, Ayodhya Nagar,<br />
                     Nagpur, Maharashtra 440024<br />
-                    +91 8600220632
+                    <span style={{ fontWeight: 600, color: '#000' }}>+91 8600220632</span>
                 </div>
             </div>
+          </div>
 
 
         {/* Items Table with Footer Totals */}

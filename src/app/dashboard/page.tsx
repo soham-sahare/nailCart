@@ -9,6 +9,12 @@ import {
 import { FiTrendingUp, FiBox, FiAlertCircle, FiDollarSign, FiShoppingBag, FiArrowRight, FiActivity, FiUsers, FiCalendar } from 'react-icons/fi';
 import Link from 'next/link';
 import { formatDateIST } from '@/lib/dateUtils';
+import dynamic from 'next/dynamic';
+
+const SalesTrendGraph = dynamic(() => import('@/components/dashboard/SalesTrendGraph'), {
+  loading: () => <div className="glass" style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>Loading Graph...</div>,
+  ssr: false // Graph is client-side heavy, disable SSR for it to speed up initial HTML
+});
 
 // Define types for API response
 interface DashboardStats {
@@ -20,7 +26,7 @@ interface DashboardStats {
     averageOrderValue: number;
     dailyAverage: number;
   };
-  salesTrend: { date: string; sales: number }[];
+  salesTrend: { date: string; sellingPrice: number; costPrice: number; profit: number }[];
   categoryDistribution: { name: string; value: number }[];
   recentSales: any[];
   topProducts: { name: string; sales: number }[];
@@ -35,14 +41,17 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [frequency, setFrequency] = useState('7d');
+  const [graphLoading, setGraphLoading] = useState(false);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [frequency]); // Refetch when frequency changes
 
   const fetchStats = async () => {
+    if (stats) setGraphLoading(true); // Show loading only on graph if already loaded once
     try {
-      const res = await fetch('/api/dashboard/stats');
+      const res = await fetch(`/api/dashboard/stats?frequency=${frequency}`);
       const data = await res.json();
       if (res.ok) {
         setStats(data.data);
@@ -51,6 +60,7 @@ export default function DashboardPage() {
       console.error(err);
     } finally {
       setLoading(false);
+      setGraphLoading(false);
     }
   };
 
@@ -123,29 +133,12 @@ export default function DashboardPage() {
         gap: '1.5rem', 
       }}>
         {/* Sales Trend */}
-        <div className="glass" style={{ padding: '1.5rem', borderRadius: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Revenue Trend (7 Days)</h3>
-            <div style={{ height: '300px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={stats.salesTrend}>
-                        <defs>
-                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#fc6bba" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#fc6bba" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                        <XAxis dataKey="date" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
-                        <Tooltip 
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                            formatter={(value: number) => [`₹${value}`, 'Sales']}
-                        />
-                        <Area type="monotone" dataKey="sales" stroke="#fc6bba" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
+        <SalesTrendGraph 
+            data={stats.salesTrend} 
+            frequency={frequency} 
+            onFrequencyChange={setFrequency}
+            loading={graphLoading} 
+        />
 
         {/* Weekly Pattern */}
         <div className="glass" style={{ padding: '1.5rem', borderRadius: '1.5rem' }}>

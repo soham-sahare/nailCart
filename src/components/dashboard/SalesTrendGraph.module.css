@@ -1,0 +1,76 @@
+.container {
+    padding: 1.5rem;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 400px;
+    margin-bottom: 2rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--foreground);
+}
+
+.controls {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--surface);
+    padding: 0.25rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.freqBtn {
+    background: transparent;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.freqBtn:hover {
+    color: var(--foreground);
+    background: rgba(var(--primary-rgb), 0.1);
+}
+
+.freqBtn.active {
+    background: var(--surface-hover);
+    color: var(--primary);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.chartContainer {
+    flex: 1;
+    width: 100%;
+    min-height: 0; /* Important for flex container */
+}
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .controls {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .freqBtn {
+        flex: 1;
+        text-align: center;
+    }
+}

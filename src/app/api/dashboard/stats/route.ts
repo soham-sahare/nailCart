@@ -6,171 +6,255 @@ import Category from '@/models/Category';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
 
-    // 1. Key Metrics
-    const totalOrders = await Order.countDocuments();
-    
-    // Revenue & Today's Sales
-    const allOrders = await Order.find({}, 'totalAmount discount createdAt');
-    const totalRevenue = allOrders.reduce((acc, order) => acc + (order.totalAmount || 0), 0);
-    
-    // InventoryStats
-    const allProducts = await Product.find({}, 'costPrice quantity category name');
-    const inventoryValue = allProducts.reduce((acc, p) => acc + ((p.costPrice || 0) * (p.quantity || 0)), 0);
-    const lowStockCount = allProducts.filter((p: any) => p.quantity < 10).length; // Low stock threshold 10
+// Simple In-Memory Cache
+const CACHE_TTL = 60 * 1000; // 60 seconds
+let cache = {
+  data: null,
+  timestamp: 0,
+  key: '' 
+};
 
-    // 2. Sales Trend (Last 7 Days)
-    // Group orders by date (YYYY-MM-DD)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const { searchParams } = new URL(req.url);
+    const frequency = searchParams.get('frequency') || '7d';
+    const cacheKey = `stats-${frequency}`;
+
+    // Valid Cache Hit?
+    const now = Date.now();
+    if (cache.data && cache.key === cacheKey && (now - cache.timestamp < CACHE_TTL)) {
+       return NextResponse.json({ success: true, data: cache.data, cached: true });
+    }
+
+    await dbConnect();
+
+    // 1. Database Aggregation for Metrics & Charts
+    // We use $facet to run multiple aggregations in parallel on the database side
     
-    const recentOrders = allOrders.filter((o: any) => new Date(o.createdAt) >= sevenDaysAgo);
+    // Date ranges
+    const today = new Date();
     
-    const salesMap: Record<string, number> = {};
-    // Initialize last 7 days with 0
-    for(let i=6; i>=0; i--) {
+    let days = 7;
+    if (frequency === '15d') days = 15;
+    if (frequency === '1m') days = 30;
+    if (frequency === '3m') days = 90;
+    if (frequency === '6m') days = 180;
+    if (frequency === '12m') days = 365;
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const [statsResult] = await Order.aggregate([
+      {
+        $facet: {
+          // A. Global Metrics (Total Revenue, Orders)
+          globalMetrics: [
+            { $match: { status: { $ne: 'CANCELLED' }, type: 'SALE' } }, 
+            { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' }, totalOrders: { $count: {} } } }
+          ],
+          // B. Sales Trend output
+          salesTrend: [
+            { $match: { createdAt: { $gte: startDate }, status: { $ne: 'CANCELLED' } } },
+            { $project: {
+                date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                totalAmount: 1,
+                items: 1,
+                type: 1,
+                returnType: 1
+            }},
+            { $sort: { date: 1 } }
+          ],
+          // C. Top Customers
+          topCustomers: [
+             { $match: { status: { $ne: 'CANCELLED' }, type: 'SALE' } },
+             { $group: { 
+                 _id: '$customerName', 
+                 total: { $sum: '$totalAmount' }, 
+                 orders: { $sum: 1 } 
+             }},
+             { $sort: { total: -1 } },
+             { $limit: 5 }
+          ],
+          // D. Top Products
+          topProducts: [
+            { $match: { status: { $ne: 'CANCELLED' } } },
+            { $unwind: '$items' },
+            { $group: {
+                _id: '$items.productName',
+                sales: { $sum: '$items.quantity' }
+            }},
+            { $sort: { sales: -1 } },
+            { $limit: 5 }
+          ],
+          // E. Recent Sales
+          recentSales: [
+              { $sort: { createdAt: -1 } },
+              { $limit: 5 },
+              { $project: { orderId: 1, customerName: 1, totalAmount: 1, createdAt: 1, status: 1 } }
+          ],
+          // F. Weekly Pattern
+          weeklyPattern: [
+              { $match: { status: { $ne: 'CANCELLED' }, type: 'SALE' } },
+              { $project: { dayOfWeek: { $dayOfWeek: '$createdAt' }, totalAmount: 1 } },
+              { $group: { _id: '$dayOfWeek', sales: { $sum: '$totalAmount' } } },
+              { $sort: { _id: 1 } }
+          ]
+        }
+      }
+    ]);
+
+    // Inventory Stats
+    const [productStats] = await Product.aggregate([
+      {
+        $facet: {
+          inventoryValue: [
+             { $project: { value: { $multiply: ['$costPrice', '$quantity'] } } },
+             { $group: { _id: null, total: { $sum: '$value' } } }
+          ],
+          lowStock: [
+              { $match: { quantity: { $lt: 10 } } },
+              { $limit: 5 },
+              { $project: { name: 1, quantity: 1 } }
+          ],
+          lowStockCount: [
+              { $match: { quantity: { $lt: 10 } } },
+              { $count: 'count' }
+          ],
+          categoryBreakdown: [ 
+             { $group: { _id: '$category', count: { $sum: 1 } } }
+          ]
+        }
+      }
+    ]);
+    
+    // --- Post-Processing ---
+
+    const metrics = statsResult.globalMetrics[0] || { totalRevenue: 0, totalOrders: 0 };
+    const invValue = productStats.inventoryValue[0]?.total || 0;
+    const lowCount = productStats.lowStockCount[0]?.count || 0;
+
+    // Daily Average
+    let dailyAverage = 0;
+    if (metrics.totalOrders > 0) {
+        const oldestOrder = await Order.findOne({}, 'createdAt').sort({ createdAt: 1 }).lean();
+        if (oldestOrder) {
+            const start = new Date(oldestOrder.createdAt as any);
+            const diffDays = Math.max(1, Math.ceil((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+            dailyAverage = Math.round(metrics.totalRevenue / diffDays);
+        }
+    }
+
+    // Process Sales Trend Logic 
+    const salesMap: Record<string, { sales: number, cost: number, profit: number }> = {};
+    
+    // Fill Dates
+    for(let i=days-1; i>=0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); // "02 Jan"
-        salesMap[dateStr] = 0;
+        const isLongRange = days > 60;
+        const isoKeys = d.toISOString().split('T')[0];
+        salesMap[isoKeys] = { sales: 0, cost: 0, profit: 0 };
     }
 
-    recentOrders.forEach((order: any) => {
-        const dateStr = new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-        if (salesMap[dateStr] !== undefined) {
-            salesMap[dateStr] += order.totalAmount;
+    statsResult.salesTrend.forEach((order: any) => {
+        const dateKey = order.date; // YYYY-MM-DD
+        if (salesMap[dateKey]) {
+            if (order.type === 'RETURN') {
+                let returnCost = 0;
+                if (order.items) {
+                    order.items.forEach((item: any) => {
+                         returnCost += (item.costPrice || 0) * item.quantity;
+                    });
+                }
+                
+                if (order.returnType === 'RESTOCK') {
+                    salesMap[dateKey].profit -= (order.totalAmount - returnCost);
+                } else {
+                    salesMap[dateKey].profit -= order.totalAmount;
+                }
+            } else {
+                let orderCost = 0;
+                 if (order.items) {
+                    order.items.forEach((item: any) => {
+                         orderCost += (item.costPrice || 0) * item.quantity;
+                    });
+                }
+                salesMap[dateKey].sales += order.totalAmount;
+                salesMap[dateKey].profit += (order.totalAmount - orderCost);
+            }
         }
     });
 
-    const salesTrend = Object.keys(salesMap).map(date => ({
-        date,
-        sales: salesMap[date]
-    }));
+    // Format Trend for Frontend
+    const formattedTrend = Object.keys(salesMap).sort().map(isoDate => {
+        const d = new Date(isoDate);
+        const isLongRange = days > 60;
+        const displayDate = isLongRange 
+            ? d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) 
+            : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 
-    // 3. Category Distribution
-    // We need to group products by category and count them
-    // Or we can show Sales by category (requires joining, maybe purely product count is faster for now)
-    const categoryMap: Record<string, number> = {};
-    const categories = await Category.find();
-    const catIdToName: Record<string, string> = {};
-    categories.forEach((c: any) => catIdToName[c._id.toString()] = c.name);
-
-    allProducts.forEach((p: any) => {
-        const catName = catIdToName[p.category?.toString()] || 'Unknown';
-        categoryMap[catName] = (categoryMap[catName] || 0) + 1;
+        return {
+            date: displayDate,
+            sellingPrice: salesMap[isoDate].sales,
+            costPrice: salesMap[isoDate].cost,
+            profit: salesMap[isoDate].profit
+        };
     });
 
-    const categoryDistribution = Object.keys(categoryMap).map(name => ({
-        name,
-        value: categoryMap[name]
-    }));
-
-    // 4. Recent Sales (Last 5)
-    // Fetch specifically with populated fields if needed, or re-use basic find
-    const latestSales = await Order.find()
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select('orderId customerName totalAmount createdAt status');
-
-    // 5. Advanced Metrics
-    const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+    // Formatting other arrays
+    const topCustomers = statsResult.topCustomers.map((c: any) => ({ name: c._id, total: c.total, orders: c.orders }));
+    const topProducts = statsResult.topProducts.map((p: any) => ({ name: p._id, sales: p.sales }));
+    const lowStockProducts = productStats.lowStock;
     
-    // Low Stock List (Details)
-    const lowStockProducts = allProducts
-        .filter((p: any) => p.quantity < 10)
-        .map((p: any) => ({ name: p.name, quantity: p.quantity, _id: p._id }))
-        .slice(0, 5); // Limit to top 5 urgent
+    // Category (Populate Names) 
+    const categories = await Category.find({}, 'name').lean();
+    const catMap: Record<string, string> = {};
+    categories.forEach((c: any) => catMap[c._id.toString()] = c.name);
 
-    // Top Selling Products (requires parsing items from orders)
-    // Fetch items field which we didn't before
-    const ordersWithItems = await Order.find({}, 'items');
-    const productSalesMap: Record<string, number> = {};
-
-    ordersWithItems.forEach((order: any) => {
-        order.items?.forEach((item: any) => {
-            productSalesMap[item.productName] = (productSalesMap[item.productName] || 0) + item.quantity;
-        });
-    });
-
-    const topProducts = Object.keys(productSalesMap)
-        .map(name => ({ name, sales: productSalesMap[name] }))
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5);
-
-    // 6. Top Customers (by Total Spend)
-    const customerSpendMap: Record<string, { name: string, total: number, orders: number }> = {};
-    
-    allOrders.forEach((order: any) => {
-        // Use mobileNumber as unique key if available, else name
-        const key = order.mobileNumber || order.customerName; 
-        if (!customerSpendMap[key]) {
-            customerSpendMap[key] = { 
-                name: order.customerName, 
-                total: 0, 
-                orders: 0 
-            };
-        }
-        customerSpendMap[key].total += (order.totalAmount || 0);
-        customerSpendMap[key].orders += 1;
-    });
-
-    const topCustomers = Object.values(customerSpendMap)
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
-
-    // 7. Weekly Sales Pattern (Day of Week)
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const weeklyPatternMap = new Array(7).fill(0);
-
-    allOrders.forEach((order: any) => {
-        const date = new Date(order.createdAt);
-        const dayIndex = date.getDay(); // 0 = Sun, 6 = Sat
-        weeklyPatternMap[dayIndex] += (order.totalAmount || 0);
-    });
-
-    const weeklyPattern = daysOfWeek.map((day, index) => ({
-        day,
-        sales: weeklyPatternMap[index]
+    const categoryDistribution = productStats.categoryBreakdown.map((c: any) => ({
+        name: catMap[c._id.toString()] || 'Unknown',
+        value: c.count
     }));
 
-    // Daily Average (approximate based on first order date)
-    let dailyAverage = 0;
-    if (allOrders.length > 0) {
-        const firstOrderDate = new Date(allOrders[allOrders.length - 1].createdAt); // Sorted desc by default? No, find returns natural order usually, but we haven't sorted allOrders. 
-        // Let's find min date reliably
-        const oldestOrder = await Order.findOne({}, {}, { sort: { 'createdAt': 1 } });
-        if (oldestOrder) {
-            const start = new Date(oldestOrder.createdAt);
-            const now = new Date();
-            const diffTime = Math.abs(now.getTime() - start.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-            dailyAverage = Math.round(totalRevenue / diffDays);
+    // Weekly Pattern Formatting
+    const dayLabels = ['', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; 
+    const weeklyPattern = new Array(7).fill(0).map((_, i) => ({ day: dayLabels[i+1], sales: 0 }));
+    statsResult.weeklyPattern.forEach((w: any) => {
+        if (weeklyPattern[w._id - 1]) {
+            weeklyPattern[w._id - 1].sales = w.sales;
         }
-    }
+    });
+    
+    const responseData = {
+        metrics: {
+            totalOrders: metrics.totalOrders,
+            totalRevenue: metrics.totalRevenue,
+            inventoryValue: invValue,
+            lowStockCount: lowCount,
+            averageOrderValue: metrics.totalOrders > 0 ? Math.round(metrics.totalRevenue / metrics.totalOrders) : 0,
+            dailyAverage
+        },
+        salesTrend: formattedTrend,
+        categoryDistribution,
+        recentSales: statsResult.recentSales,
+        topProducts,
+        lowStockProducts,
+        topCustomers,
+        weeklyPattern
+    };
 
+    // Update Cache
+    cache = {
+        data: responseData as any,
+        timestamp: now,
+        key: cacheKey
+    };
 
     return NextResponse.json({
         success: true,
-        data: {
-            metrics: {
-                totalOrders,
-                totalRevenue,
-                inventoryValue,
-                lowStockCount,
-                averageOrderValue,
-                dailyAverage
-            },
-            salesTrend,
-            categoryDistribution,
-            recentSales: latestSales,
-            topProducts,
-            lowStockProducts,
-            topCustomers,
-            weeklyPattern
-        }
+        data: responseData
     });
 
   } catch (error: any) {

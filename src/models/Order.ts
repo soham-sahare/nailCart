@@ -19,6 +19,7 @@ const OrderSchema = new mongoose.Schema({
       productName: { type: String, required: true },
       quantity: { type: Number, required: true, min: 1 },
       price: { type: Number, required: true, min: 0 },
+      costPrice: { type: Number }, // Added for Profit Calculation (Snapshot)
       sku: { type: String },     // Added for Invoice
       category: { type: String } // Added for Invoice
     }
@@ -55,6 +56,14 @@ const OrderSchema = new mongoose.Schema({
     enum: ['RESTOCK', 'REFUND_ONLY'],
   },
 }, { timestamps: true });
+
+// Indexes for Performance
+OrderSchema.index({ createdAt: -1 });
+OrderSchema.index({ orderId: 1 });
+OrderSchema.index({ status: 1 });
+OrderSchema.index({ customerName: 1 });
+OrderSchema.index({ mobileNumber: 1 });
+OrderSchema.index({ type: 1 });
 
 // Prevent Mongoose Recompilation Error in Development
 if (process.env.NODE_ENV === 'development') {
