@@ -44,6 +44,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
+    maxAge: 12 * 60 * 60, // 12 hours in seconds
   },
   pages: {
     signIn: '/admin/login',
@@ -58,6 +59,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
         if (user) {
             token.name = user.name;
+            token.loginTime = Date.now(); // Track login time
         }
         return token;
     }

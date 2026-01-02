@@ -39,6 +39,21 @@ const OrderSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  paymentMethod: {
+    type: String,
+    enum: ['UPI', 'CASH', 'SPLIT'],
+    default: 'CASH'
+  },
+  upiAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  cashAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   status: {
     type: String,
     enum: ['COMPLETED', 'RETURNED', 'CANCELLED', 'REFUNDED'],

@@ -22,6 +22,9 @@ interface Order {
   discount: number;
   courierFees?: number;
   totalAmount: number;
+  paymentMethod?: string;
+  upiAmount?: number;
+  cashAmount?: number;
 
   status: string;
   type?: string;
@@ -225,8 +228,29 @@ export default function InvoicePage() {
                     <span>Total</span>
                     <span>₹{order.totalAmount}</span>
                 </div>
+                {/* Payment Method */}
+        {order.paymentMethod && (
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'transparent', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Method</div>
+                <div style={{ fontSize: '1rem', fontWeight: 600 }}>{order.paymentMethod}</div>
+                {order.paymentMethod === 'SPLIT' && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
+                        <div>
+                            <span style={{ color: '#888' }}>UPI: </span>
+                            <span style={{ fontWeight: 600 }}>₹{order.upiAmount || 0}</span>
+                        </div>
+                        <div>
+                            <span style={{ color: '#888' }}>Cash: </span>
+                            <span style={{ fontWeight: 600 }}>₹{order.cashAmount || 0}</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
             </div>
         </div>
+
+        
 
         {/* Footer Note */}
         <div style={{ marginTop: '60px', textAlign: 'center', color: '#888', fontSize: '0.9rem' }}>

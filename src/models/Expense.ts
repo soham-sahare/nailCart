@@ -27,8 +27,18 @@ const ExpenseSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['Cash', 'UPI', 'Card', 'Bank Transfer'],
-    default: 'Cash'
+    enum: ['UPI', 'CASH', 'SPLIT'],
+    default: 'UPI'
+  },
+  upiAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  cashAmount: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, { timestamps: true });
 

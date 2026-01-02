@@ -32,6 +32,21 @@ const LedgerSchema = new mongoose.Schema({
   date: {
     type: Date,
     default: Date.now,
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['UPI', 'CASH', 'SPLIT'],
+    default: 'UPI'
+  },
+  upiAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  cashAmount: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, { timestamps: true });
 

@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { originalOrderId, items, returnType } = body;
+    const { originalOrderId, items, returnType, paymentMethod, upiAmount, cashAmount } = body;
 
     // 1. Generate Return/Refund Invoice ID
     const idPrefix = returnType === 'REFUND_ONLY' ? 'REF' : 'RET';
@@ -61,6 +61,9 @@ export async function POST(req: Request) {
         items: returnItems,
         totalAmount: refundAmount, // This acts as the refund amount
         discount: 0, // No discount on return usually, or calculate proportional? Simplicity -> 0
+        paymentMethod: paymentMethod || 'CASH',
+        upiAmount: upiAmount || 0,
+        cashAmount: cashAmount || 0,
         status: returnType === 'REFUND_ONLY' ? 'REFUNDED' : 'RETURNED',
         type: 'RETURN',
         originalOrderId: originalOrderId,

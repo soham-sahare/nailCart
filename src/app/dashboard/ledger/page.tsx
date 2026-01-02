@@ -27,6 +27,9 @@ function LedgerContent() {
   const [viewingEntry, setViewingEntry] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [clearingEntry, setClearingEntry] = useState<any>(null);
+  const [clearPaymentMethod, setClearPaymentMethod] = useState<string>('UPI');
+  const [clearUpiAmount, setClearUpiAmount] = useState<number>(0);
+  const [clearCashAmount, setClearCashAmount] = useState<number>(0);
 
   const [formData, setFormData] = useState({
     partyName: '',
@@ -138,13 +141,26 @@ function LedgerContent() {
 
   const confirmClear = async () => {
       if (!clearingEntry) return;
+
+      // Validate split payment
+      if (clearPaymentMethod === 'SPLIT') {
+          const totalSplit = clearUpiAmount + clearCashAmount;
+          if (totalSplit !== clearingEntry.amount) {
+              showToast('error', 'Payment Mismatch', `Split payment total (₹${totalSplit}) must match entry total (₹${clearingEntry.amount})`);
+              return;
+          }
+      }
+
       try {
           const res = await fetch(`/api/ledger/${clearingEntry._id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                   status: 'CLEARED',
-                  dueDate: new Date().toISOString()
+                  dueDate: new Date().toISOString(),
+                  paymentMethod: clearPaymentMethod,
+                  upiAmount: clearUpiAmount,
+                  cashAmount: clearCashAmount
               })
           });
 
@@ -307,7 +323,13 @@ function LedgerContent() {
                                         <button 
                                             className={`${styles.actionBtn}`} 
                                             style={{ color: '#16a34a', background: 'rgba(22, 163, 74, 0.1)', marginRight: '0.5rem' }}
-                                            onClick={(e) => { e.stopPropagation(); setClearingEntry(entry); }}
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setClearingEntry(entry);
+                                                setClearPaymentMethod('UPI');
+                                                setClearUpiAmount(entry.amount);
+                                                setClearCashAmount(0);
+                                            }}
                                             title="Clear Entry"
                                         >
                                             <FiCheckCircle size={16} />
@@ -461,6 +483,21 @@ function LedgerContent() {
                     </div>
                 </div>
 
+                <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', justifyContent: 'flex-start' }}>
+                    <span className={styles.detailLabel}>Payment Method</span>
+                     <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontWeight: 600, fontSize: '1rem' }}>
+                            {viewingEntry.paymentMethod || '-'}
+                        </div>
+                        {viewingEntry.paymentMethod === 'SPLIT' && (
+                            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '4px', display: 'flex', gap: '0.75rem' }}>
+                                <span>UPI: <span style={{ fontWeight: 600 }}>₹{viewingEntry.upiAmount}</span></span>
+                                <span>Cash: <span style={{ fontWeight: 600 }}>₹{viewingEntry.cashAmount}</span></span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className={styles.detailRow} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                     <span className={styles.detailLabel}>Description</span>
                     <span className={styles.detailValue} style={{ fontSize: '1rem', color: '#666', textAlign: 'left', lineHeight: 1.5 }}>
@@ -511,6 +548,75 @@ function LedgerContent() {
                 <br/><br/>
                 <span style={{ fontSize: '0.9rem', color: '#666' }}>This will set the Close Date to today.</span>
             </p>
+            
+            {/* Payment Method Selection */}
+            <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <label style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.75rem', display: 'block' }}>Payment Method</label>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    {['CASH', 'UPI', 'SPLIT'].map((method) => (
+                        <label key={method} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                            <input
+                                type="radio"
+                                name="clearPaymentMethod"
+                                value={method}
+                                checked={clearPaymentMethod === method}
+                                onChange={(e) => {
+                                    const newMethod = e.target.value;
+                                    setClearPaymentMethod(newMethod);
+                                    if (newMethod === 'UPI') {
+                                        setClearUpiAmount(clearingEntry.amount);
+                                        setClearCashAmount(0);
+                                    } else if (newMethod === 'CASH') {
+                                        setClearCashAmount(clearingEntry.amount);
+                                        setClearUpiAmount(0);
+                                    } else {
+                                        setClearUpiAmount(0);
+                                        setClearCashAmount(0);
+                                    }
+                                }}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontWeight: 500 }}>{method}</span>
+                        </label>
+                    ))}
+                </div>
+                
+                {/* Split Payment Fields */}
+                {clearPaymentMethod === 'SPLIT' && clearingEntry && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                        <div>
+                            <label style={{ fontSize: '0.9rem', color: '#888', marginBottom: '0.25rem', display: 'block' }}>UPI Amount (₹)</label>
+                            <input
+                                type="number"
+                                className="input-field"
+                                value={clearUpiAmount}
+                                onChange={(e) => {
+                                    const upi = Number(e.target.value);
+                                    setClearUpiAmount(upi);
+                                    setClearCashAmount(Math.max(0, clearingEntry.amount - upi));
+                                }}
+                                min="0"
+                                max={clearingEntry.amount}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.9rem', color: '#888', marginBottom: '0.25rem', display: 'block' }}>Cash Amount (₹)</label>
+                            <input
+                                type="number"
+                                className="input-field"
+                                value={clearCashAmount}
+                                onChange={(e) => {
+                                    const cash = Number(e.target.value);
+                                    setClearCashAmount(cash);
+                                    setClearUpiAmount(Math.max(0, clearingEntry.amount - cash));
+                                }}
+                                min="0"
+                                max={clearingEntry.amount}
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
             <div className={styles.modalActions}>
                 <button className={styles.btnCancel} onClick={handleCloseModal}>Cancel</button>
                 <button 

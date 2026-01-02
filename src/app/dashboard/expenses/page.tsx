@@ -20,6 +20,8 @@ interface Expense {
     paymentMethod: string;
     date: string;
     createdAt: string;
+    upiAmount?: number;
+    cashAmount?: number;
 }
 
 export default function ExpensesPage() {
@@ -51,7 +53,9 @@ export default function ExpensesPage() {
     amount: '',
     category: 'Misc',
     description: '',
-    paymentMethod: 'Cash'
+    paymentMethod: 'UPI',
+    upiAmount: 0,
+    cashAmount: 0
   });
 
   const { showToast } = useToast();
@@ -119,11 +123,13 @@ export default function ExpensesPage() {
               amount: String(expense.amount),
               category: expense.category,
               description: expense.description || '',
-              paymentMethod: expense.paymentMethod
+              paymentMethod: expense.paymentMethod,
+              upiAmount: expense.upiAmount || 0,
+              cashAmount: expense.cashAmount || 0
           });
       } else {
           setEditingExpense(null);
-          setFormData({ title: '', amount: '', category: 'Misc', description: '', paymentMethod: 'Cash' });
+          setFormData({ title: '', amount: '', category: 'Misc', description: '', paymentMethod: 'UPI', upiAmount: 0, cashAmount: 0 });
       }
       setIsModalOpen(true);
   };
@@ -133,11 +139,22 @@ export default function ExpensesPage() {
       setEditingExpense(null);
       setViewingExpense(null);
       setDeleteId(null);
-      setFormData({ title: '', amount: '', category: 'Misc', description: '', paymentMethod: 'Cash' });
+      setFormData({ title: '', amount: '', category: 'Misc', description: '', paymentMethod: 'UPI', upiAmount: 0, cashAmount: 0 });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate Split Payment
+    if (formData.paymentMethod === 'SPLIT') {
+        const total = Number(formData.amount);
+        const splitTotal = Number(formData.upiAmount) + Number(formData.cashAmount);
+        if (splitTotal !== total) {
+            showToast('error', 'Payment Mismatch', `Split amounts (₹${splitTotal}) must equal total amount (₹${total})`);
+            return;
+        }
+    }
+
     try {
       const url = editingExpense ? `/api/expenses/${editingExpense._id}` : '/api/expenses';
       const method = editingExpense ? 'PUT' : 'POST';
@@ -312,8 +329,27 @@ export default function ExpensesPage() {
             </div>
             <div className={styles.row}>
             <div className={styles.formGroup}>
-                <label>Amount</label>
-                <input type="number" className="input-field" required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} placeholder="0.00" />
+                <label>Amount (₹)</label>
+                <input 
+                    type="number" 
+                    className="input-field" 
+                    required 
+                    value={formData.amount} 
+                    onChange={e => {
+                        const val = e.target.value;
+                        setFormData(prev => {
+                            const newTotal = Number(val);
+                            const currentUpi = Number(prev.upiAmount) || 0;
+                            return {
+                                ...prev, 
+                                amount: val,
+                                // If SPLIT, update Cash auto
+                                cashAmount: prev.paymentMethod === 'SPLIT' ? Math.max(0, newTotal - currentUpi) : 0
+                            };
+                        });
+                    }} 
+                    placeholder="0.00" 
+                />
             </div>
             </div>
             <div className={styles.row}>
@@ -327,15 +363,82 @@ export default function ExpensesPage() {
                     />
                 </div>
             </div>
-            <div className={styles.formGroup}>
-                    <label>Method</label>
-                    <div style={{ width: '100%' }}>
-                        <CustomDropdown
-                        options={['Cash', 'UPI', 'Card', 'Bank Transfer'].map(c => ({ value: c, label: c }))}
-                        value={formData.paymentMethod}
-                        onChange={(val) => setFormData({...formData, paymentMethod: val})}
-                        />
+            <div className={styles.formGroup} style={{ flex: 1 }}>
+                    <label style={{ marginBottom: '0.5rem', display: 'block' }}>Payment Method</label>
+                    <div style={{ 
+                        display: 'flex', 
+                        gap: '1rem', 
+                        padding: '0.75rem', 
+                        background: 'var(--surface)', 
+                        border: '1px solid var(--border)', 
+                        borderRadius: '8px',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                         <div style={{ display: 'flex', gap: '1rem' }}>
+                            {['CASH', 'UPI', 'SPLIT'].map((method) => (
+                                <label key={method} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                    <input
+                                        type="radio"
+                                        name="paymentMethod"
+                                        value={method}
+                                        checked={formData.paymentMethod === method}
+                                        onChange={(e) => {
+                                            const method = e.target.value;
+                                            const total = Number(formData.amount) || 0;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                paymentMethod: method,
+                                                upiAmount: method === 'UPI' || method === 'SPLIT' ? total : 0,
+                                                cashAmount: method === 'CASH' ? total : 0
+                                            }));
+                                        }}
+                                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--primary)' }}
+                                    />
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{method}</span>
+                                </label>
+                            ))}
+                        </div>
                     </div>
+                     {/* Split Payment Inputs */}
+                     {formData.paymentMethod === 'SPLIT' && (
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem', display: 'block' }}>UPI Amount</label>
+                                <input
+                                    type="number"
+                                    className="input-field"
+                                    value={formData.upiAmount}
+                                    onChange={(e) => {
+                                        const val = Number(e.target.value);
+                                        const total = Number(formData.amount);
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            upiAmount: val,
+                                            cashAmount: Math.max(0, total - val)
+                                        }));
+                                    }}
+                                />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem', display: 'block' }}>Cash Amount</label>
+                                <input
+                                    type="number"
+                                    className="input-field"
+                                    value={formData.cashAmount}
+                                    onChange={(e) => {
+                                        const val = Number(e.target.value);
+                                        const total = Number(formData.amount);
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            cashAmount: val,
+                                            upiAmount: Math.max(0, total - val)
+                                        }));
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    )}
             </div>
             </div>
             <div className={styles.formGroup}>
@@ -373,9 +476,16 @@ export default function ExpensesPage() {
                     <span className={styles.detailLabel}>Date</span>
                     <span className={styles.detailValue}>{new Date(viewingExpense.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 </div>
-                    <div className={styles.detailRow}>
+                <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Method</span>
-                    <span className={styles.detailValue}>{viewingExpense.paymentMethod}</span>
+                    <div style={{ textAlign: 'right' }}>
+                         <span className={styles.detailValue}>{viewingExpense.paymentMethod}</span>
+                         {viewingExpense.paymentMethod === 'SPLIT' && (
+                             <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.25rem' }}>
+                                 UPI: <b>₹{viewingExpense.upiAmount}</b> • Cash: <b>₹{viewingExpense.cashAmount}</b>
+                             </div>
+                         )}
+                    </div>
                 </div>
                 {viewingExpense.description && (
                         <div className={styles.detailRow} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
