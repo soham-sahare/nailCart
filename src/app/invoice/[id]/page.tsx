@@ -154,7 +154,7 @@ export default function InvoicePage() {
             <div className={styles.ownerInfo} style={{ flex: 1, textAlign: 'right' }}>
                 <Image src="/logo.jpg" alt="Logo" width={70} height={70} style={{ borderRadius: '50%', marginBottom: '10px' }} />
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em', marginBottom: '4px' }}>NailCart</div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#444', marginBottom: '10px' }}>GSTIN: 27ABCDE1234F1Z5</div>
+                {/* <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#444', marginBottom: '10px' }}>GSTIN: 27ABCDE1234F1Z5</div> */}
 
                 <div className={styles.value} style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#555' }}>
                     Shraddha Chowk, Plot No. 14,<br />
