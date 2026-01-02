@@ -93,7 +93,7 @@ export default function CategoriesPage() {
         throw new Error(data.message || 'Something went wrong');
       }
 
-      showToast('success', 'Success', editingCategory ? 'Category updated' : 'Category created');
+      showToast('success', 'Success', editingCategory ? `Category '${formData.name}' updated successfully` : `Category '${formData.name}' created successfully`);
       setIsModalOpen(false);
       fetchCategories();
     } catch (err: any) {
@@ -110,7 +110,8 @@ export default function CategoriesPage() {
       });
       
       if (res.ok) {
-        showToast('success', 'Deleted', 'Category removed successfully');
+        const categoryName = categories.find(c => c._id === deleteId)?.name || 'Unknown';
+        showToast('success', 'Deleted', `Category '${categoryName}' removed successfully`);
         setDeleteId(null);
         fetchCategories();
       } else {

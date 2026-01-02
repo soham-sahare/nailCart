@@ -143,7 +143,8 @@ export default function ProductsPage() {
       });
       
       if (res.ok) {
-        showToast('success', 'Success', editingProduct ? 'Product updated' : 'Product created');
+        const productName = formData.name;
+        showToast('success', 'Success', editingProduct ? `Product '${productName}' updated successfully` : `Product '${productName}' created successfully`);
         handleCloseModal();
         fetchProducts();
       } else {

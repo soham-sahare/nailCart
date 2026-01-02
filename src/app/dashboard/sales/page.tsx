@@ -44,6 +44,7 @@ interface Product {
   sellingPrice: number;
   sku: string;
   category: { name: string };
+  quantity: number;
 }
 
 export default function SalesPage() {
@@ -390,7 +391,7 @@ export default function SalesPage() {
       }
 
       showToast('success', editingOrder ? 'Sale Updated' : 'Sale Created', 
-        editingOrder ? `Sale ${savedOrder.orderId} updated successfully.` : `New sale ${savedOrder.orderId} created successfully.`);
+        editingOrder ? `Sale '${savedOrder.orderId}' updated successfully` : `Sale '${savedOrder.orderId}' created successfully`);
 
     } catch (err: any) {
       setError(err.message);
@@ -412,7 +413,7 @@ export default function SalesPage() {
       if (res.ok) {
         handleCloseModal();
         fetchOrders();
-        showToast('success', 'Sale Deleted', `Sale ${orderId} has been deleted.`);
+        showToast('success', 'Sale Deleted', `Sale '${orderId}' has been deleted`);
       } else {
         showToast('error', 'Error', 'Failed to delete sale');
       }

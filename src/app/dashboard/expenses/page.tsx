@@ -8,6 +8,7 @@ import SearchInput from '@/components/ui/SearchInput';
 import ActionButtons from '@/components/ui/ActionButtons';
 import Modal from '@/components/ui/Modal';
 import Pagination from '@/components/ui/Pagination';
+import { useToast } from '@/components/ui/Toast';
 import styles from './expenses.module.css';
 
 interface Expense {
@@ -52,6 +53,8 @@ export default function ExpensesPage() {
     description: '',
     paymentMethod: 'Cash'
   });
+
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchExpenses();
@@ -151,6 +154,8 @@ export default function ExpensesPage() {
       });
 
       if (res.ok) {
+        const expenseTitle = formData.title;
+        showToast('success', 'Success', editingExpense ? `Expense '${expenseTitle}' updated successfully` : `Expense '${expenseTitle}' created successfully`);
         handleCloseModal();
         fetchExpenses();
       }
@@ -161,8 +166,10 @@ export default function ExpensesPage() {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
+    const expenseTitle = expenses.find(e => e._id === deleteId)?.title || 'Unknown';
     try {
       await fetch(`/api/expenses/${deleteId}`, { method: 'DELETE' });
+      showToast('success', 'Deleted', `Expense '${expenseTitle}' removed successfully`);
       handleCloseModal();
       fetchExpenses();
     } catch (err) {

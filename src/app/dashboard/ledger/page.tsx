@@ -114,7 +114,7 @@ function LedgerContent() {
       if (res.ok) {
         handleCloseModal();
         fetchLedger();
-        showToast('success', editingEntry ? 'Entry Updated' : 'Entry Created', `Ledger entry for ${formData.partyName} saved.`);
+        showToast('success', editingEntry ? 'Entry Updated' : 'Entry Created', editingEntry ? `Ledger entry for '${formData.partyName}' updated successfully` : `Ledger entry for '${formData.partyName}' created successfully`);
       }
     } catch (err: any) {
       console.error(err);
@@ -128,7 +128,8 @@ function LedgerContent() {
       await fetch(`/api/ledger/${deleteId}`, { method: 'DELETE' });
       handleCloseModal();
       fetchLedger();
-      showToast('success', 'Entry Deleted', 'Ledger entry has been deleted.');
+      const partyName = entries.find((e: any) => e._id === deleteId)?.partyName || 'Unknown';
+      showToast('success', 'Entry Deleted', `Ledger entry for '${partyName}' has been deleted.`);
     } catch (err) {
       console.error(err);
       showToast('error', 'Error', 'Failed to delete entry');
