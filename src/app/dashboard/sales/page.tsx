@@ -11,6 +11,8 @@ interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
+  sku?: string;
+  category?: string;
 }
 
 interface Order {
@@ -28,6 +30,8 @@ interface Product {
   _id: string;
   name: string;
   sellingPrice: number;
+  sku: string;
+  category: { name: string };
 }
 
 export default function SalesPage() {
@@ -47,17 +51,67 @@ export default function SalesPage() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    customerName: string;
+    mobileNumber: string;
+    items: OrderItem[];
+    discount: number;
+    totalAmount: number;
+  }>({
     customerName: '',
     mobileNumber: '',
-    items: [{ productName: '', quantity: 1, price: 0 }],
+    items: [],
     discount: 0,
     totalAmount: 0 // Will auto calc
   });
+  const [activeProduct, setActiveProduct] = useState('');
   const [error, setError] = useState('');
-
-  // WhatsApp State
   const [sendWhatsapp, setSendWhatsapp] = useState(false);
+
+  // ... (fetchOrder, fetchProducts, etc remain same)
+
+  // Add Product Handler (Single Search)
+  const handleAddProduct = (productName: string) => {
+      if (!productName) return;
+
+      const product = products.find(p => p.name === productName);
+      if (!product) return;
+
+      // Check if product already exists
+      const existingItemIndex = formData.items.findIndex(item => item.productName === productName);
+
+      if (existingItemIndex !== -1) {
+          // Merge Logic: Increment Quantity
+          const newItems = [...formData.items];
+          newItems[existingItemIndex].quantity += 1;
+          setFormData({ ...formData, items: newItems });
+          showToast('success', 'Merged', `"${productName}" already exists. Added +1 quantity.`);
+      } else {
+          // Add New Logic
+          const newItem: OrderItem = {
+              productName: product.name,
+              quantity: 1,
+              price: product.sellingPrice,
+              sku: product.sku,
+              category: product.category?.name || ''
+          };
+
+          setFormData({ 
+              ...formData, 
+              // If the list has only one empty item (initial state), replace it. Otherwise append.
+              items: (formData.items.length === 1 && !formData.items[0].productName) 
+                  ? [newItem] 
+                  : [...formData.items, newItem] 
+          });
+      }
+      
+      setActiveProduct(''); // Reset dropdown
+  };
+
+  // ... (handleDeleteClick, etc)
+
+
+
 
   // Delete State
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -79,7 +133,7 @@ export default function SalesPage() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products?limit=1000'); // Fetch all for dropdown
+      const res = await fetch('/api/products?limit=1000&status=ACTIVE'); // Fetch all active for dropdown
       const data = await res.json();
       setProducts(data.data);
     } catch (err) {
@@ -114,7 +168,7 @@ export default function SalesPage() {
       setFormData({
         customerName: '',
         mobileNumber: '',
-        items: [{ productName: '', quantity: 1, price: 0 }],
+        items: [{ productName: '', quantity: 1, price: 0, sku: '', category: '' }],
         discount: 0,
         totalAmount: 0 // Will auto calc
       });
@@ -138,21 +192,24 @@ export default function SalesPage() {
   // Form Handlers
   const handleItemChange = (index: number, field: keyof OrderItem, value: any) => {
       const newItems = [...formData.items];
-      
+      const item = { ...newItems[index] };
+
       if (field === 'productName') {
-        // Find product and auto-fill price
-        const product = products.find(p => p.name === value);
-        if (product) {
-             newItems[index] = { ...newItems[index], productName: value, price: product.sellingPrice };
-        } else {
-             newItems[index] = { ...newItems[index], productName: value };
-        }
+          const product = products.find(p => p.name === value);
+          item.productName = value;
+          if (product) {
+              item.price = product.sellingPrice;
+              item.sku = product.sku;
+              item.category = product.category?.name || '';
+          }
       } else {
-        newItems[index] = { ...newItems[index], [field]: value };
+          (item as any)[field] = value;
       }
       
+      newItems[index] = item;
       setFormData({ ...formData, items: newItems });
   };
+
 
   const handleQuantityChange = (index: number, delta: number) => {
       const newItems = [...formData.items];
@@ -468,17 +525,25 @@ export default function SalesPage() {
 
                 <div>
                     <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Order Items</label>
+                    
+                    {/* Master Search Dropdown */}
+                    <div style={{ marginBottom: '1rem' }}>
+                         <CustomDropdown
+                            options={products.map(p => ({ value: p.name, label: p.name }))}
+                            value={activeProduct}
+                            onChange={handleAddProduct}
+                            placeholder="🔍 Search & Add Product..."
+                            searchable={true}
+                        />
+                    </div>
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {formData.items.map((item, index) => (
+                             item.productName && (
                             <div key={index} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <div style={{ flex: 2 }}>
-                                    <CustomDropdown
-                                        options={products.map(p => ({ value: p.name, label: p.name }))}
-                                        value={item.productName}
-                                        onChange={(val) => handleItemChange(index, 'productName', val)}
-                                        placeholder="Select Product"
-                                        searchable={true}
-                                    />
+                                <div style={{ flex: 2, display: 'flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0 12px', height: '42px', color: 'var(--foreground)' }}>
+                                    <span style={{ fontWeight: 500 }}>{item.productName}</span>
+                                    {item.sku && <span style={{ marginLeft: '8px', fontSize: '0.8rem', color: '#666' }}>#{item.sku}</span>}
                                 </div>
 
                                 {/* Quantity Stepper */}
@@ -486,9 +551,9 @@ export default function SalesPage() {
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     border: '1px solid var(--border)', 
-                                    borderRadius: '50px', // More pill-shaped
+                                    borderRadius: '8px', 
                                     overflow: 'hidden',
-                                    height: '42px', // Compact height
+                                    height: '42px', 
                                     background: 'var(--surface)'
                                 }}>
                                     <button 
@@ -506,7 +571,7 @@ export default function SalesPage() {
                                             cursor: 'pointer',
                                             fontSize: '1.2rem',
                                             borderRight: '1px solid var(--border)',
-                                            paddingBottom: '2px' // Visual center fix
+                                            paddingBottom: '2px' 
                                         }}
                                     >
                                         -
@@ -562,31 +627,30 @@ export default function SalesPage() {
                                         placeholder="Price" 
                                         className="input-field" 
                                         value={item.price} 
-                                        onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
-                                        required
-                                        min="0"
+                                        readOnly
                                         style={{ 
                                             width: '100px', 
                                             paddingLeft: '24px', 
                                             paddingRight: '10px',
                                             height: '100%',
                                             textAlign: 'center', 
-                                            borderRadius: '50px'
+                                            borderRadius: '8px',
+                                            background: 'var(--surface)', 
+                                            border: '1px solid var(--border)',
+                                            cursor: 'default',
+                                            color: 'var(--foreground)'
                                         }} 
                                     />
                                 </div>
 
-                                {formData.items.length > 1 && (
-                                    <button type="button" className={styles.removeItemBtn} onClick={() => removeItem(index)}>
-                                        <FiMinus size={16} />
-                                    </button>
-                                )}
+                                <button type="button" className={styles.removeItemBtn} onClick={() => removeItem(index)}>
+                                    <FiMinus size={16} />
+                                </button>
                             </div>
+                        )
                         ))}
                     </div>
-                    <button type="button" className={styles.addItemBtn} onClick={addItem}>
-                        <FiPlus /> Add Item
-                    </button>
+                    {/* Add Item Button Removed */}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>

@@ -18,7 +18,9 @@ const OrderSchema = new mongoose.Schema({
     {
       productName: { type: String, required: true },
       quantity: { type: Number, required: true, min: 1 },
-      price: { type: Number, required: true, min: 0 }
+      price: { type: Number, required: true, min: 0 },
+      sku: { type: String },     // Added for Invoice
+      category: { type: String } // Added for Invoice
     }
   ],
   discount: {

@@ -114,6 +114,13 @@
     border-bottom: none;
 }
 
+/* First Column (Item) - Biggest and Left Aligned */
+.table th:first-child,
+.table td:first-child {
+    text-align: left;
+    width: 50%;
+}
+
 .textRight {
     text-align: right;
 }

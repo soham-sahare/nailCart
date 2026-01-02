@@ -24,45 +24,73 @@ interface Order {
   createdAt: string;
 }
 
+
+interface Product {
+  name: string;
+  sku: string;
+  category: { name: string };
+}
+
 export default function InvoicePage() {
   const { id } = useParams();
   const [order, setOrder] = useState<Order | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchOrder = async () => {
+    const fetchData = async () => {
       if (!id) {
         setLoading(false);
         setError('Invoice ID is missing.');
         return;
       }
       try {
-        // Let's try fetching the specific one via list for safety first.
+        // Fetch Order
         const resList = await fetch('/api/sales?limit=1000'); 
         const data = await resList.json();
         const found = data.data.find((o: any) => o._id === id);
+        
+        // Fetch Products for lookup (backward compatibility)
+        const resProducts = await fetch('/api/products?limit=1000');
+        const prodData = await resProducts.json();
+        
         setOrder(found || null);
+        setProducts(prodData.data || []);
+
         if (!found) {
           setError('Invoice not found.');
         }
       } catch (err) {
         console.error(err);
-        setError('Failed to fetch invoice.');
+        setError('Failed to fetch invoice data.');
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) fetchOrder();
+    if (id) fetchData();
   }, [id]);
 
   if (loading) return <div style={{padding: '40px', textAlign: 'center'}}>Loading Invoice...</div>;
   if (!order) return <div style={{padding: '40px', textAlign: 'center'}}>Invoice not found</div>;
 
+  const getItemDetails = (item: OrderItem) => {
+     // Use saved details if available
+     if ((item as any).sku && (item as any).category) {
+         return { sku: (item as any).sku, category: (item as any).category };
+     }
+     // Fallback to lookup
+     const product = products.find(p => p.name.toLowerCase() === item.productName.toLowerCase());
+     return {
+         sku: product?.sku || '',
+         category: product?.category?.name || ''
+     };
+  };
+
   return (
     <div className={styles.container}>
-      {/* Watermark */}
+      {/* ... header ... */}
       <div className={styles.watermark}>
         <Image src="/logo.jpg" alt="Watermark" width={500} height={500} style={{ objectFit: 'contain' }} />
       </div>
@@ -109,14 +137,25 @@ export default function InvoicePage() {
                 </tr>
             </thead>
             <tbody>
-                {order.items.map((item, idx) => (
-                    <tr key={idx}>
-                        <td>{item.productName}</td>
-                        <td>{item.quantity}</td>
-                        <td>₹{item.price}</td>
-                        <td>₹{item.price * item.quantity}</td>
-                    </tr>
-                ))}
+                {order.items.map((item, idx) => {
+                    const details = getItemDetails(item);
+                    return (
+                        <tr key={idx}>
+                            <td>
+                                <div style={{ fontWeight: 600 }}>{item.productName}</div>
+                                {(details.sku || details.category) && (
+                                    <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>
+                                        {details.sku && <span style={{ marginRight: '8px' }}>#{details.sku}</span>}
+                                        {details.category && <span>#{details.category}</span>}
+                                    </div>
+                                )}
+                            </td>
+                            <td>{item.quantity}</td>
+                            <td>₹{item.price}</td>
+                            <td>₹{item.price * item.quantity}</td>
+                        </tr>
+                    );
+                })}
             </tbody>
 
         </table>

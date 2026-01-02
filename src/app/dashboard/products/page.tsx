@@ -70,7 +70,7 @@ export default function ProductsPage() {
 
   const fetchCategories = async () => {
       try {
-          const res = await fetch('/api/categories?limit=100'); // Fetch enough categories
+          const res = await fetch('/api/categories?limit=100&status=ACTIVE'); // Fetch enough active categories
           const data = await res.json();
           setCategories(data.data);
       } catch (err) {
