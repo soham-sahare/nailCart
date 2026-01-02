@@ -15,9 +15,10 @@ interface CustomDropdownProps {
   onChange: (value: string) => void;
   placeholder?: string;
   searchable?: boolean;
+  allowCustomValue?: boolean;
 }
 
-export default function CustomDropdown({ options, value, onChange, placeholder = 'Select...', searchable = false }: CustomDropdownProps) {
+export default function CustomDropdown({ options, value, onChange, placeholder = 'Select...', searchable = false, allowCustomValue = false }: CustomDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -51,6 +52,7 @@ export default function CustomDropdown({ options, value, onChange, placeholder =
   );
 
   const selectedOption = options.find((opt) => opt.value === value);
+  const displayLabel = selectedOption ? selectedOption.label : (allowCustomValue && value ? value : placeholder);
 
   return (
     <div className={styles.container} ref={dropdownRef}>
@@ -59,7 +61,7 @@ export default function CustomDropdown({ options, value, onChange, placeholder =
         className={`${styles.trigger} ${isOpen ? styles.open : ''}`} 
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span>{selectedOption ? selectedOption.label : placeholder}</span>
+        <span>{displayLabel}</span>
         <FiChevronDown className={styles.chevron} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
       </button>
 
@@ -79,6 +81,12 @@ export default function CustomDropdown({ options, value, onChange, placeholder =
           )}
           
           <div className={styles.optionsList}>
+             {allowCustomValue && searchQuery && !filteredOptions.find(o => o.label.toLowerCase() === searchQuery.toLowerCase()) && (
+                 <div className={styles.option} onClick={() => handleSelect(searchQuery)}>
+                    <span style={{ color: 'var(--primary)', fontWeight: 600 }}>+ Use &quot;{searchQuery}&quot;</span>
+                 </div>
+            )}
+
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
                 <div
@@ -90,7 +98,7 @@ export default function CustomDropdown({ options, value, onChange, placeholder =
                 </div>
               ))
             ) : (
-              <div className={styles.noResults}>No results found</div>
+              !allowCustomValue && <div className={styles.noResults}>No results found</div>
             )}
           </div>
         </div>

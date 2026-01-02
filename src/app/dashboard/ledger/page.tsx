@@ -41,6 +41,25 @@ function LedgerContent() {
     date: new Date().toISOString().split('T')[0]
   });
 
+  // Contacts Integration
+  const [contacts, setContacts] = useState<any[]>([]);
+
+  useEffect(() => {
+      fetchContactsList();
+  }, []);
+
+  const fetchContactsList = async () => {
+      try {
+          const res = await fetch('/api/contacts');
+          const data = await res.json();
+          if (data.success) {
+              setContacts(data.data);
+          }
+      } catch (err) {
+          console.error(err);
+      }
+  };
+
   useEffect(() => {
     const party = searchParams.get('party');
     if (party) {
@@ -357,16 +376,18 @@ function LedgerContent() {
                   
 
 
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Party Name</label>
-                    <input
-                        type="text"
-                        className="input-field"
-                        value={formData.partyName}
-                        onChange={(e) => setFormData({ ...formData, partyName: e.target.value })}
-                        required
-                        placeholder="e.g. John Doe"
-                    />
+                    <div style={{ height: '50px' }}> {/* Box wrapper for height consistency */}
+                        <CustomDropdown 
+                            options={contacts.map(c => ({ value: c.name, label: c.name }))}
+                            value={formData.partyName}
+                            onChange={(val) => setFormData({ ...formData, partyName: val })}
+                            placeholder="Select or type new name..."
+                            searchable={true}
+                            allowCustomValue={true}
+                        />
+                    </div>
                   </div>
 
                   <div>

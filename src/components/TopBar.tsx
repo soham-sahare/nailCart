@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
-import { FiHome, FiBox, FiGrid, FiLogOut, FiShoppingCart, FiMenu, FiX, FiBook } from 'react-icons/fi';
+import { FiHome, FiBox, FiGrid, FiLogOut, FiShoppingCart, FiMenu, FiX, FiBook, FiUsers } from 'react-icons/fi';
 import { FaRupeeSign } from 'react-icons/fa';
 import ThemeToggle from './ThemeToggle';
 import styles from './TopBar.module.css';
@@ -21,6 +21,7 @@ export default function TopBar() {
     { name: 'Sales', href: '/dashboard/sales', icon: FiShoppingCart },
     { name: 'Expenses', href: '/dashboard/expenses', icon: FaRupeeSign },
     { name: 'Ledger', href: '/dashboard/ledger', icon: FiBook },
+    { name: 'Contacts', href: '/dashboard/contacts', icon: FiUsers },
   ];
 
   const [isOpen, setIsOpen] = useState(false);

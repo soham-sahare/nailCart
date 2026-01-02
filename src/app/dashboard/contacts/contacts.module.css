@@ -1,0 +1,149 @@
+/* Inherit global glass class in component */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding-top: 1rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Push content to edges */
+  padding: 1rem 1.5rem;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  gap: 1.5rem;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
+}
+
+.controlActions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-shrink: 0;
+}
+
+.tableContainer {
+  border-radius: 0 0 1.5rem 1.5rem;
+  overflow: hidden;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  min-width: 800px;
+}
+
+.table th, .table td {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  background: rgba(0, 0, 0, 0.2);
+  font-weight: 600;
+  color: #bbb;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table td {
+    background: var(--background);
+}
+
+.table tr:hover td {
+  background: rgba(255, 255, 255, 0.05);
+  transition: background 0.2s;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+.modal {
+  border-radius: 2rem;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 600px;
+  border: 1px solid var(--glass-border);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+.btnCancel {
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  font-weight: 600;
+  color: var(--foreground); /* Added specific color */
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.btnCancel:hover {
+  background: var(--surface-hover);
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--foreground);
+  font-size: 0.95rem;
+}
+
+/* Other shared styles */
+.searchGroup {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-grow: 1;
+}
