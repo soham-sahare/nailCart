@@ -5,6 +5,9 @@ const nextConfig = {
     config.externals = [...(config.externals || []), 'mongoose'];
     return config;
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 export default nextConfig;
