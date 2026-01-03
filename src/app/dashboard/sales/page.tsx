@@ -38,7 +38,9 @@ interface Order {
   originalOrderId?: string;
   hasReturn?: boolean;
   returnType?: string;
+  returnType?: string;
   createdAt: string;
+  createdBy?: string;
 }
 
 interface Product {
@@ -1023,6 +1025,12 @@ export default function SalesPage() {
                         <span className={styles.detailLabel}>Order Date</span>
                         <span className={styles.detailValue} style={{ textAlign: 'left' }}>{formatDateIST(viewingOrder.createdAt)}</span>
                     </div>
+                    {viewingOrder.createdBy && (
+                        <div className={styles.detailRow} style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                            <span className={styles.detailLabel}>Created By</span>
+                            <span className={styles.detailValue} style={{ textAlign: 'left', fontWeight: 600, color: 'var(--primary)' }}>{viewingOrder.createdBy}</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Items List */}

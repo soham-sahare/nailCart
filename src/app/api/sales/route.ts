@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
 import { generateOrderId } from '@/lib/orderUtils';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(req: Request) {
   try {
@@ -85,6 +87,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
     await dbConnect();
     const body = await req.json();
 
@@ -132,7 +135,8 @@ export async function POST(req: Request) {
     const order = await Order.create({ 
         ...body, 
         items: enrichedItems,
-        orderId: uniqueId 
+        orderId: uniqueId,
+        createdBy: session?.user?.name || 'System'
     });
 
     // INVENTORY UPDATE: Decrement stock

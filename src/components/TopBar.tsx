@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
-import { FiHome, FiBox, FiGrid, FiLogOut, FiShoppingCart, FiMenu, FiX, FiBook, FiUsers } from 'react-icons/fi';
+import { FiHome, FiBox, FiGrid, FiLogOut, FiShoppingCart, FiMenu, FiX, FiBook, FiUsers, FiSettings } from 'react-icons/fi';
 import { FaRupeeSign } from 'react-icons/fa';
 import ThemeToggle from './ThemeToggle';
 import styles from './TopBar.module.css';
@@ -13,8 +13,9 @@ import styles from './TopBar.module.css';
 export default function TopBar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const role = (session?.user as any)?.role;
 
-  const links = [
+  let links = [
     { name: 'Dashboard', href: '/dashboard', icon: FiHome },
     { name: 'Categories', href: '/dashboard/categories', icon: FiGrid },
     { name: 'Products', href: '/dashboard/products', icon: FiBox },
@@ -23,6 +24,12 @@ export default function TopBar() {
     { name: 'Ledger', href: '/dashboard/ledger', icon: FiBook },
     { name: 'Contacts', href: '/dashboard/contacts', icon: FiUsers },
   ];
+
+  if (role === 'STAFF') {
+      links = links.filter(link => ['Categories', 'Products', 'Sales', 'Contacts'].includes(link.name));
+  } else if (role === 'OWNER') {
+      links.push({ name: 'Manage', href: '/dashboard/manage', icon: FiSettings });
+  }
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -69,6 +76,25 @@ export default function TopBar() {
         {/* Desktop Actions */}
         <div className={styles.actions}>
           <span className={styles.user}>{session?.user?.name || 'User'}</span>
+          
+          {role !== 'OWNER' && (
+              <button 
+                onClick={async () => {
+                    const res = await fetch('/api/setup-owner', { method: 'POST' });
+                    const data = await res.json();
+                    if(data.success) {
+                        alert('You are now OWNER. Please Logout and Login again to reflect changes.');
+                        signOut({ callbackUrl: '/admin/login' });
+                    } else {
+                        alert(data.message);
+                    }
+                }}
+                style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', background: '#333', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                Claim Owner
+              </button>
+          )}
+
           <ThemeToggle />
           <button className={styles.logoutBtn} onClick={() => signOut({ callbackUrl: '/admin/login' })}>
             <FiLogOut size={18} />
@@ -108,9 +134,27 @@ export default function TopBar() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontWeight: 600 }}>{session?.user?.name || 'User'}</span>
-                    <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>Admin</span>
+                    <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>{role || 'Staff'}</span>
                 </div>
              </div>
+
+             {role !== 'OWNER' && (
+                  <button 
+                    onClick={async () => {
+                        const res = await fetch('/api/setup-owner', { method: 'POST' });
+                        const data = await res.json();
+                        if(data.success) {
+                            alert('You are now OWNER. Please Logout and Login again.');
+                            signOut({ callbackUrl: '/admin/login' });
+                        } else {
+                            alert(data.message);
+                        }
+                    }}
+                    style={{ fontSize: '0.7rem', padding: '0.5rem', background: '#333', color: '#fff', borderRadius: '4px', cursor: 'pointer', border: 'none' }}
+                  >
+                    Claim Owner
+                  </button>
+             )}
              
              <div style={{ display: 'flex', gap: '1rem' }}>
                 <ThemeToggle />

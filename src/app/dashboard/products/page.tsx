@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus } from 'react-icons/fi';
+import { FiPlus, FiX } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import SearchInput from '@/components/ui/SearchInput';
 import ActionButtons from '@/components/ui/ActionButtons';
@@ -22,12 +22,17 @@ interface Product {
   status: 'ACTIVE' | 'INACTIVE';
   description?: string;
   mrp?: number;
+  isPending?: boolean;
+  pendingAction?: 'UPDATE' | 'DELETE';
+  isRejected?: boolean;
+  requestId?: string;
 }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
@@ -73,6 +78,21 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const deleteRequest = async (requestId: string) => {
+      if(!requestId) return;
+      try {
+          const res = await fetch(`/api/approvals/${requestId}`, { method: 'DELETE' });
+          if(res.ok) {
+              showToast('success', 'Cleared', 'Request removed');
+              fetchProducts();
+          } else {
+              showToast('error', 'Error', 'Failed to remove request');
+          }
+      } catch(err) {
+          console.error(err);
+      }
   };
 
   const fetchCategories = async () => {
@@ -128,6 +148,9 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     try {
       const url = editingProduct ? `/api/products/${editingProduct._id}` : '/api/products';
       const method = editingProduct ? 'PUT' : 'POST';
@@ -141,18 +164,22 @@ export default function ProductsPage() {
              mrp: formData.mrp === '' ? undefined : formData.mrp // Send undefined if empty to skip validation/casting issues
         })
       });
+
+      const data = await res.json();
       
       if (res.ok) {
         const productName = formData.name;
-        showToast('success', 'Success', editingProduct ? `Product '${productName}' updated successfully` : `Product '${productName}' created successfully`);
+        showToast('success', 'Success', data.message || (editingProduct ? `Product '${productName}' updated successfully` : `Product '${productName}' created successfully`));
         handleCloseModal();
         fetchProducts();
       } else {
-        showToast('error', 'Error', 'Failed to save product');
+        showToast('error', 'Error', data.message || 'Failed to save product');
       }
     } catch (err) {
       console.error(err);
       showToast('error', 'Error', 'An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -240,10 +267,26 @@ export default function ProductsPage() {
               ) : products.length === 0 ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>No products found</td></tr>
               ) : (
-                products.map((product) => (
-                  <tr key={product._id}>
+                products.map((product) => {
+                  const isRejected = product.isRejected;
+                  const isPending = product.isPending;
+                  const pendingAction = product.pendingAction;
+                  
+                  // Row Style
+                  let rowStyle = {};
+                  if (isRejected) rowStyle = { opacity: 0.8, background: 'rgba(239, 68, 68, 0.05)' };
+                  else if (isPending) rowStyle = { opacity: 0.8, background: 'rgba(245, 158, 11, 0.05)' };
+
+                  return (
+                  <tr key={product._id} style={rowStyle}>
                     <td>{product.sku}</td>
-                    <td style={{ fontWeight: 500 }}>{product.name}</td>
+                    <td style={{ fontWeight: 500 }}>
+                        {product.name}
+                        {isPending && !pendingAction && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#f59e0b' }}>(Pending Create)</span>}
+                        {pendingAction === 'UPDATE' && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#f59e0b' }}>(Pending Update)</span>}
+                        {pendingAction === 'DELETE' && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ef4444' }}>(Pending Delete)</span>}
+                        {isRejected && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ef4444' }}>(Rejected)</span>}
+                    </td>
                     <td>{product.category?.name || '-'}</td>
                     <td>₹{product.costPrice}</td>
                     <td>
@@ -257,14 +300,25 @@ export default function ProductsPage() {
                       <StatusBadge status={product.status} />
                     </td>
                     <td>
-                      <ActionButtons 
-                          onView={() => setViewingProduct(product)}
-                          onEdit={() => handleOpenModal(product)}
-                          onDelete={() => handleDeleteClick(product._id, product.name)}
-                      />
+                      {isRejected ? (
+                          <button 
+                            className={styles.actionBtn}
+                            style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}
+                            onClick={() => deleteRequest(product.requestId!)}
+                            title="Clear Rejected Request"
+                          >
+                           <FiX size={16} />
+                          </button>
+                      ) : (
+                          <ActionButtons 
+                              onView={() => setViewingProduct(product)}
+                              onEdit={(isPending || pendingAction) ? undefined : () => handleOpenModal(product)} 
+                              onDelete={(isPending || pendingAction) ? undefined : () => handleDeleteClick(product._id, product.name)}
+                          />
+                      )}
                     </td>
                   </tr>
-                ))
+                )})
               )}
             </tbody>
           </table>

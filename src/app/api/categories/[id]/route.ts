@@ -10,13 +10,27 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
     await dbConnect();
     const body = await req.json();
     const { id } = await params;
+
+    const role = (session.user as any).role;
+    if (role === 'STAFF') {
+        const ApprovalRequest = require('@/models/ApprovalRequest').default;
+        await ApprovalRequest.create({
+            type: 'UPDATE',
+            model: 'CATEGORY',
+            data: body,
+            targetId: id,
+            requestedBy: session.user.name,
+            status: 'PENDING'
+        });
+        return NextResponse.json({ success: true, message: 'Update request submitted for approval' });
+    }
 
     const category = await Category.findByIdAndUpdate(
       id,
@@ -40,12 +54,25 @@ export async function DELETE(
   ) {
     try {
       const session = await getServerSession(authOptions);
-      if (!session) {
+      if (!session || !session.user) {
         return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
       }
   
       await dbConnect();
       const { id } = await params;
+
+      const role = (session.user as any).role;
+      if (role === 'STAFF') {
+          const ApprovalRequest = require('@/models/ApprovalRequest').default;
+          await ApprovalRequest.create({
+              type: 'DELETE',
+              model: 'CATEGORY',
+              targetId: id,
+              requestedBy: session.user.name,
+              status: 'PENDING'
+          });
+          return NextResponse.json({ success: true, message: 'Delete request submitted for approval' });
+      }
       
       const category = await Category.findByIdAndDelete(id);
   

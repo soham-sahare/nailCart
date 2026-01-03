@@ -64,6 +64,10 @@ const OrderSchema = new mongoose.Schema({
       enum: ['SALE', 'RETURN'], // New field to distinguish Sales vs Returns
       default: 'SALE'
   },
+  createdBy: {
+      type: String,
+      default: 'System'
+  },
   originalOrderId: {
       type: String, // ID of the original order if this is a return
   },

@@ -89,12 +89,17 @@
 }
 
 .table th {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.05);
   font-weight: 600;
-  color: #bbb;
+  color: #666;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+:global(.dark) .table th {
+  background: rgba(0, 0, 0, 0.2);
+  color: #bbb;
 }
 
 .table tr:last-child td {

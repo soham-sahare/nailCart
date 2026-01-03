@@ -38,6 +38,7 @@ export const authOptions: NextAuthOptions = {
         return {
           id: user._id.toString(),
           name: user.username,
+          role: user.role, // Add this
         };
       }
     })
@@ -50,16 +51,18 @@ export const authOptions: NextAuthOptions = {
     signIn: '/admin/login',
   },
   callbacks: {
-    async session({ session, token }) {
+      async session({ session, token }) {
         if (session.user) {
             session.user.name = token.name;
+            (session.user as any).role = token.role; // Pass role to session
         }
         return session;
     },
     async jwt({ token, user }) {
         if (user) {
             token.name = user.name;
-            token.loginTime = Date.now(); // Track login time
+            token.role = (user as any).role; // Store role in token
+            token.loginTime = Date.now();
         }
         return token;
     }

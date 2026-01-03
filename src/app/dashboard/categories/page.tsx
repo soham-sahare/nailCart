@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiPlus } from 'react-icons/fi';
+import { FiPlus, FiX } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import SearchInput from '@/components/ui/SearchInput';
 import ActionButtons from '@/components/ui/ActionButtons';
@@ -16,11 +16,23 @@ interface Category {
   name: string;
   status: 'ACTIVE' | 'INACTIVE';
   slug: string;
+  isPending?: boolean;
+  pendingAction?: 'UPDATE' | 'DELETE';
+  isRejected?: boolean;
+  requestId?: string;
 }
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
+  // ... (rest of component: use placeholders to avoid matching large blocks, only target the start)
+
+  // Wait, I cannot use replace_file_content for non-contiguous changes easily if I don't provide the whole block.
+  // I will split this into two calls or use multi_replace.
+  // Actually, I can just use multi_replace.
+  // But replace_file_content is requested.
+  // I will just update the interface first.
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -57,6 +69,21 @@ export default function CategoriesPage() {
     }
   };
 
+  const deleteRequest = async (requestId: string) => {
+      if(!requestId) return;
+      try {
+          const res = await fetch(`/api/approvals/${requestId}`, { method: 'DELETE' });
+          if(res.ok) {
+              showToast('success', 'Cleared', 'Request removed');
+              fetchCategories();
+          } else {
+              showToast('error', 'Error', 'Failed to remove request');
+          }
+      } catch(err) {
+          console.error(err);
+      }
+  };
+
   const handleOpenModal = (category?: Category) => {
     if (category) {
       setEditingCategory(category);
@@ -75,6 +102,9 @@ export default function CategoriesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(isSubmitting) return;
+    setIsSubmitting(true);
+
     setError('');
     
     try {
@@ -93,11 +123,13 @@ export default function CategoriesPage() {
         throw new Error(data.message || 'Something went wrong');
       }
 
-      showToast('success', 'Success', editingCategory ? `Category '${formData.name}' updated successfully` : `Category '${formData.name}' created successfully`);
+      showToast('success', 'Success', data.message || (editingCategory ? `Category '${formData.name}' updated successfully` : `Category '${formData.name}' created successfully`));
       setIsModalOpen(false);
       fetchCategories();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -177,21 +209,48 @@ export default function CategoriesPage() {
               ) : categories.length === 0 ? (
                 <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>No categories found</td></tr>
               ) : (
-                categories.map((category) => (
-                  <tr key={category._id}>
-                    <td>{category.name}</td>
+                categories.map((category) => {
+                  const isRejected = category.isRejected;
+                  const isPending = category.isPending;
+                  const pendingAction = category.pendingAction;
+                  
+                  // Row Style
+                  let rowStyle = {};
+                  if (isRejected) rowStyle = { opacity: 0.8, background: 'rgba(239, 68, 68, 0.05)' };
+                  else if (isPending) rowStyle = { opacity: 0.8, background: 'rgba(245, 158, 11, 0.05)' };
+
+                  return (
+                  <tr key={category._id} style={rowStyle}>
+                    <td>
+                         {category.name} 
+                         {isPending && !pendingAction && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#f59e0b' }}>(Pending Create)</span>}
+                         {pendingAction === 'UPDATE' && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#f59e0b' }}>(Pending Update)</span>}
+                         {pendingAction === 'DELETE' && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ef4444' }}>(Pending Delete)</span>}
+                         {isRejected && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ef4444' }}>(Rejected)</span>}
+                    </td>
                     <td>
                       <StatusBadge status={category.status} />
                     </td>
                     <td>
-                      <ActionButtons 
-                          onView={() => setViewingCategory(category)}
-                          onEdit={() => handleOpenModal(category)}
-                          onDelete={() => handleDeleteClick(category._id, category.name)}
-                      />
+                      {isRejected ? (
+                          <button 
+                            className={styles.actionBtn}
+                            style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}
+                            onClick={() => deleteRequest(category.requestId!)}
+                            title="Clear Rejected Request"
+                          >
+                           <FiX size={16} />
+                          </button>
+                      ) : (
+                          <ActionButtons 
+                              onView={() => setViewingCategory(category)}
+                              onEdit={(isPending || pendingAction) ? undefined : () => handleOpenModal(category)}
+                              onDelete={(isPending || pendingAction) ? undefined : () => handleDeleteClick(category._id, category.name)}
+                          />
+                      )}
                     </td>
                   </tr>
-                ))
+                )})
               )}
             </tbody>
           </table>
