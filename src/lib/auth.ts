@@ -87,5 +87,9 @@ export const authOptions: NextAuthOptions = {
         }
         return token;
     }
-  }
+  },
+  // Use NEXTAUTH_URL from env, fallback to Vercel URL or localhost
+  ...(process.env.NEXTAUTH_URL && { 
+    url: process.env.NEXTAUTH_URL 
+  })
 };
