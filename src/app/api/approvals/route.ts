@@ -27,12 +27,13 @@ export async function GET(req: Request) {
     const requests = await ApprovalRequest.find({ status: 'PENDING' }).sort({ createdAt: 1 });
 
     // Enrich requests with current data for UPDATE types
-    const enrichedRequests = await Promise.all(requests.map(async (req) => {
-        const requestObj = req.toObject();
+    // Enrich requests with current data for UPDATE types
+    const enrichedRequests = await Promise.all(requests.map(async (requestItem: any) => {
+        const requestObj = requestItem.toObject();
         
-        if (req.type === 'UPDATE' && req.targetId) {
-            const Model = req.model === 'PRODUCT' ? Product : Category;
-            const currentData = await Model.findById(req.targetId).lean();
+        if (requestItem.type === 'UPDATE' && requestItem.targetId) {
+            const Model = requestItem.model === 'PRODUCT' ? Product : Category;
+            const currentData = await Model.findById(requestItem.targetId).lean();
             if (currentData) {
                 requestObj.currentData = currentData;
             }
