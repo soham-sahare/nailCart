@@ -20,9 +20,15 @@ interface SalesTrendGraphProps {
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const dateLabel = new Date(label).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+      });
+
       return (
         <div className="glass" style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: '12px', minWidth: '150px' }}>
-          <p style={{ fontWeight: '600', marginBottom: '0.5rem', color: 'var(--foreground)' }}>{label}</p>
+          <p style={{ fontWeight: '600', marginBottom: '0.5rem', color: 'var(--foreground)' }}>{dateLabel}</p>
           {payload.map((entry: any, index: number) => (
             <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: entry.color }}></div>
@@ -64,6 +70,10 @@ export default function SalesTrendGraph({ data, frequency, onFrequencyChange, lo
                     tickLine={false} 
                     tick={{ fill: '#888', fontSize: 12 }} 
                     dy={10}
+                    tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                    }}
                 />
                 <YAxis 
                     axisLine={false} 

@@ -18,6 +18,7 @@ let cache = {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    await dbConnect(); // Connect early
     const range = searchParams.get('range') || 'this_month';
     const fromParam = searchParams.get('from');
     const toParam = searchParams.get('to');
@@ -52,8 +53,16 @@ export async function GET(req: Request) {
     } else if (range === 'this_month') {
         startDate.setDate(1); // 1st of current month
     } else if (range === 'all_time') {
-        startDate = new Date(0); // Epoch (1970) to include everything
+        const oldestOrder = await Order.findOne({}, { createdAt: 1 }).sort({ createdAt: 1 });
+        if (oldestOrder) {
+           startDate = new Date(oldestOrder.createdAt);
+           startDate.setHours(0, 0, 0, 0); // Start of that day
+        } else {
+           startDate.setMonth(startDate.getMonth() - 1); // Default to 1 month if no orders
+        }
     }
+
+    // console.log('[API] Stats Log:', { range, start: startDate.toISOString(), end: endDate.toISOString() });
 
     const cacheKey = `stats-${range}-${startDate.toISOString()}-${endDate.toISOString()}`;
 
@@ -63,7 +72,7 @@ export async function GET(req: Request) {
        return NextResponse.json({ success: true, data: cache.data, cached: true });
     }
 
-    await dbConnect();
+    // await dbConnect(); // Moved to top
 
     // 2. Database Aggregation
     const dateFilter = { $gte: startDate, $lte: endDate };
@@ -275,9 +284,9 @@ export async function GET(req: Request) {
 
     // Format Trend for Frontend
     const formattedTrend = Object.keys(salesMap).sort().map(isoDate => {
-        const d = new Date(isoDate);
+        // const d = new Date(isoDate);
         return {
-            date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+            date: isoDate, // Return YYYY-MM-DD for accurate frontend parsing
             sellingPrice: salesMap[isoDate].sales,
             costPrice: salesMap[isoDate].cost,
             profit: salesMap[isoDate].profit,

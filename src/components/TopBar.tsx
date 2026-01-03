@@ -114,24 +114,6 @@ export default function TopBar() {
         {/* Desktop Actions */}
         <div className={styles.actions}>
           <span className={styles.user}>{session?.user?.name || 'User'}</span>
-          
-          {role !== 'OWNER' && (
-              <button 
-                onClick={async () => {
-                    const res = await fetch('/api/setup-owner', { method: 'POST' });
-                    const data = await res.json();
-                    if(data.success) {
-                        alert('You are now OWNER. Please Logout and Login again to reflect changes.');
-                        signOut({ callbackUrl: '/admin/login' });
-                    } else {
-                        alert(data.message);
-                    }
-                }}
-                style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', background: '#333', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                Claim Owner
-              </button>
-          )}
 
           <ThemeToggle />
           <button className={styles.logoutBtn} onClick={() => signOut({ callbackUrl: '/admin/login' })}>
@@ -194,23 +176,6 @@ export default function TopBar() {
                 </div>
              </div>
 
-             {role !== 'OWNER' && (
-                  <button 
-                    onClick={async () => {
-                        const res = await fetch('/api/setup-owner', { method: 'POST' });
-                        const data = await res.json();
-                        if(data.success) {
-                            alert('You are now OWNER. Please Logout and Login again.');
-                            signOut({ callbackUrl: '/admin/login' });
-                        } else {
-                            alert(data.message);
-                        }
-                    }}
-                    style={{ fontSize: '0.7rem', padding: '0.5rem', background: '#333', color: '#fff', borderRadius: '4px', cursor: 'pointer', border: 'none' }}
-                  >
-                    Claim Owner
-                  </button>
-             )}
              
              <div style={{ display: 'flex', gap: '1rem' }}>
                 <ThemeToggle />

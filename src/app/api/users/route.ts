@@ -31,18 +31,20 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { username, password } = body;
+    const { username, password, role } = body;
 
     const existingUser = await User.findOne({ username });
     if (existingUser) {
         return NextResponse.json({ success: false, message: 'Username already exists' }, { status: 400 });
     }
 
+    const assignedRole = (role === 'OWNER') ? 'OWNER' : 'STAFF';
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({
         username,
         password: hashedPassword,
-        role: 'STAFF',
+        role: assignedRole,
         mustChangePassword: true
     });
 

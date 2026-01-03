@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FiPlus, FiCheck, FiX, FiRefreshCcw } from 'react-icons/fi';
+import ActionButtons from '@/components/ui/ActionButtons';
 import Modal from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import styles from './manage.module.css';
@@ -20,7 +21,8 @@ export default function ManagePage() {
 
     // Modal States
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-    const [userForm, setUserForm] = useState({ username: '', password: '' });
+    const [userForm, setUserForm] = useState({ username: '', password: '', role: 'STAFF' });
+    const [editingUser, setEditingUser] = useState<any>(null);
     
     // View Request Modal
     const [viewRequest, setViewRequest] = useState<any>(null);
@@ -60,23 +62,55 @@ export default function ManagePage() {
         }
     };
 
-    const handleCreateUser = async (e: React.FormEvent) => {
+    const handleSaveUser = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await fetch('/api/users', {
-                method: 'POST',
+            const isEdit = !!editingUser;
+            const url = isEdit ? `/api/users/${editingUser._id}` : '/api/users';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            // For Edit, we only send role (and maybe other fields if added later). Password/Username optional/disabled.
+            const body = isEdit ? { role: userForm.role } : userForm;
+
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userForm)
+                body: JSON.stringify(body)
             });
             const data = await res.json();
             
             if (res.ok) {
-                showToast('success', 'User Created', `Staff ${data.data.username} created.`);
+                showToast('success', 'Success', isEdit ? 'User updated' : `Staff ${data.data.username} created.`);
                 setIsUserModalOpen(false);
-                setUserForm({ username: '', password: '' });
+                setUserForm({ username: '', password: '', role: 'STAFF' });
+                setEditingUser(null);
                 fetchData();
             } else {
-                showToast('error', 'Error', data.message || 'Failed to create user');
+                showToast('error', 'Error', data.message || 'Operation failed');
+            }
+        } catch (err) {
+            showToast('error', 'Error', 'Something went wrong');
+        }
+    };
+
+    const handleEditUser = (user: any) => {
+        setEditingUser(user);
+        setUserForm({ username: user.username, password: '', role: user.role }); // Password empty on edit
+        setIsUserModalOpen(true);
+    };
+
+    const handleDeleteUser = async (userId: string, username: string) => {
+        if (!confirm(`Are you sure you want to delete user "${username}"? This cannot be undone.`)) return;
+
+        try {
+            const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+            const data = await res.json();
+
+            if (res.ok) {
+                showToast('success', 'User Deleted', 'User account removed.');
+                fetchData();
+            } else {
+                showToast('error', 'Error', data.message || 'Failed to delete user');
             }
         } catch (err) {
             showToast('error', 'Error', 'Something went wrong');
@@ -108,8 +142,8 @@ export default function ManagePage() {
 
     if (status === 'loading' || loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
 
-    // Filter staff only (Owner is hidden or shown?) - Let's show all but highlight role
-    const staffUsers = users.filter(u => u.role === 'STAFF');
+    // Filter users: exclude current session user
+    const staffUsers = users.filter(u => u.username !== (session?.user as any)?.name);
 
     return (
         <div className={styles.container}>
@@ -187,19 +221,31 @@ export default function ManagePage() {
                                 <th>Username</th>
                                 <th>Role</th>
                                 <th>Created At</th>
+                                <th style={{ textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {staffUsers.length === 0 ? (
-                                <tr><td colSpan={3} style={{ textAlign: 'center' }}>No staff accounts found.</td></tr>
+                                <tr><td colSpan={4} style={{ textAlign: 'center' }}>No other accounts found.</td></tr>
                             ) : (
                                 staffUsers.map(user => (
                                     <tr key={user._id}>
                                         <td style={{ fontWeight: 500 }}>{user.username}</td>
                                         <td>
-                                            <span className={styles.badge} style={{ background: '#eee', color: '#555' }}>{user.role}</span>
+                                            <span className={styles.badge} style={{ 
+                                                background: user.role === 'OWNER' ? 'var(--primary)' : '#eee', 
+                                                color: user.role === 'OWNER' ? '#fff' : '#555' 
+                                            }}>
+                                                {user.role}
+                                            </span>
                                         </td>
                                         <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                                        <td>
+                                            <ActionButtons 
+                                                onEdit={() => handleEditUser(user)}
+                                                onDelete={() => handleDeleteUser(user._id, user.username)}
+                                            />
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -208,14 +254,18 @@ export default function ManagePage() {
                 </div>
             </div>
 
-            {/* Create User Modal */}
+            {/* User Modal (Create / Edit) */}
             <Modal
                 isOpen={isUserModalOpen}
-                onClose={() => setIsUserModalOpen(false)}
-                title="Create Staff Account"
+                onClose={() => {
+                    setIsUserModalOpen(false);
+                    setEditingUser(null);
+                    setUserForm({ username: '', password: '', role: 'STAFF' });
+                }}
+                title={editingUser ? 'Edit User' : 'Create Staff Account'}
                 width="400px"
             >
-                <form onSubmit={handleCreateUser}>
+                <form onSubmit={handleSaveUser}>
                     <div className={styles.formGroup}>
                         <label>Username</label>
                         <input 
@@ -224,21 +274,38 @@ export default function ManagePage() {
                             required 
                             value={userForm.username}
                             onChange={e => setUserForm({ ...userForm, username: e.target.value })}
+                            disabled={!!editingUser} // Cannot change username on edit
+                            style={!!editingUser ? { background: 'var(--surface-hover)', cursor: 'not-allowed' } : {}}
                         />
                     </div>
+                    {!editingUser && (
+                        <div className={styles.formGroup}>
+                            <label>Password</label>
+                            <input 
+                                type="password" 
+                                className={styles.input} 
+                                required 
+                                value={userForm.password}
+                                onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                            />
+                        </div>
+                    )}
                     <div className={styles.formGroup}>
-                        <label>Password</label>
-                        <input 
-                            type="password" 
-                            className={styles.input} 
-                            required 
-                            value={userForm.password}
-                            onChange={e => setUserForm({ ...userForm, password: e.target.value })}
-                        />
+                        <label>Role</label>
+                        <select 
+                            className={styles.input}
+                            value={userForm.role}
+                            onChange={e => setUserForm({ ...userForm, role: e.target.value })}
+                        >
+                            <option value="STAFF">Staff</option>
+                            <option value="OWNER">Owner</option>
+                        </select>
                     </div>
                     <div className={styles.modalActions}>
                         <button type="button" className={styles.btnCancel} onClick={() => setIsUserModalOpen(false)}>Cancel</button>
-                        <button type="submit" className="btn-primary">Create Staff</button>
+                        <button type="submit" className="btn-primary">
+                            {editingUser ? 'Update User' : 'Create Staff'}
+                        </button>
                     </div>
                 </form>
             </Modal>
