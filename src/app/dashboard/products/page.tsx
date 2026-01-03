@@ -10,6 +10,7 @@ import Modal from '@/components/ui/Modal';
 import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './products.module.css';
+import { fetchCategories } from '@/lib/fetchers';
 
 interface Product {
   _id: string;
@@ -60,7 +61,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-    fetchCategories();
+    loadCategories();
   }, [search, limit, page]);
 
   const fetchProducts = async () => {
@@ -95,13 +96,10 @@ export default function ProductsPage() {
       }
   };
 
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch('/api/categories');
-      const data = await res.json();
-      if (data.success) setCategories(data.data);
-    } catch (err) {
-      console.error(err);
+  const loadCategories = async () => {
+    const data = await fetchCategories('', 1000);
+    if (data && data.data) {
+        setCategories(data.data);
     }
   };
 

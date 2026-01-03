@@ -7,10 +7,6 @@ import Expense from '@/models/Expense';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
-  try {
-    await dbConnect();
-
 // Simple In-Memory Cache
 const CACHE_TTL = 60 * 1000; // 60 seconds
 let cache = {
@@ -19,6 +15,8 @@ let cache = {
   key: '' 
 };
 
+export async function GET(req: Request) {
+  try {
     const { searchParams } = new URL(req.url);
     const frequency = searchParams.get('frequency') || '7d';
     const cacheKey = `stats-${frequency}`;

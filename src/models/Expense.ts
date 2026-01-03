@@ -42,6 +42,10 @@ const ExpenseSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Indexes for Reporting
+ExpenseSchema.index({ date: -1 });
+ExpenseSchema.index({ category: 1 });
+
 // Prevent Mongoose Recompilation Error
 if (process.env.NODE_ENV === 'development') {
     if (mongoose.models.Expense) {

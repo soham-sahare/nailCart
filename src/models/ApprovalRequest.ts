@@ -34,6 +34,13 @@ const ApprovalRequestSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Indexes for Dashboard performance
+ApprovalRequestSchema.index({ status: 1 });
+ApprovalRequestSchema.index({ model: 1 });
+ApprovalRequestSchema.index({ type: 1 });
+// Compound index for fetching pending requests sorted by date
+ApprovalRequestSchema.index({ status: 1, createdAt: 1 });
+
 // Prevent Mongoose Recompilation
 if (process.env.NODE_ENV === 'development') {
     if (mongoose.models.ApprovalRequest) {

@@ -36,68 +36,28 @@ export async function GET(req: Request) {
     const total = await Category.countDocuments(query);
 
     // 4. Check for Pending Updates/Deletes (ALL PAGES)
+    // 4. Check for Pending Updates/Deletes (ALL PAGES)
     if (!status) {
+         const { getPendingModifications, augmentWithPendingStatus } = require('@/lib/approvalService');
          const categoryIds = categories.map((c: any) => c._id);
-         const ApprovalRequest = require('@/models/ApprovalRequest').default;
-         
-         const pendingModifications = await ApprovalRequest.find({
-             model: 'CATEGORY',
-             status: 'PENDING',
-             targetId: { $in: categoryIds },
-             type: { $in: ['UPDATE', 'DELETE'] }
-         });
-
-         const modificationMap = new Map();
-         pendingModifications.forEach((req: any) => {
-             modificationMap.set(req.targetId.toString(), req.type);
-         });
-
-         categories = categories.map((c: any) => {
-             const action = modificationMap.get(c._id.toString());
-             if (action) {
-                 return { ...c, pendingAction: action, isPending: true };
-             }
-             return c;
-         });
+         const modificationMap = await getPendingModifications('CATEGORY', categoryIds);
+         categories = augmentWithPendingStatus(categories, modificationMap);
     }
-
-
 
     // 5. Check for Pending/Rejected CREATES (First Page Only)
     let finalCategories: any[] = categories;
 
     if (page === 1 && !search && !status) {
-        const ApprovalRequest = require('@/models/ApprovalRequest').default;
-        
-        const pendingCreates = await ApprovalRequest.find({
-            type: 'CREATE',
-            model: 'CATEGORY',
-            status: 'PENDING'
-         }).sort({ requestDate: -1 });
+         // Session validated at start
+         const role = (session?.user as any)?.role || 'STAFF';
+         const { getGhostItems, mapRequestsToItems } = require('@/lib/approvalService');
+         
+         const { pendingCreates, rejectedCreates } = await getGhostItems('CATEGORY', role);
 
-        // ONLY FOR STAFF
-        let rejectedCreates: any[] = [];
-        if (role === 'STAFF') {
-            rejectedCreates = await ApprovalRequest.find({
-                type: 'CREATE',
-                model: 'CATEGORY',
-                status: 'REJECTED'
-             }).sort({ requestDate: -1 });
-        }
+         const mappedPending = mapRequestsToItems(pendingCreates, 'PENDING');
+         const mappedRejected = mapRequestsToItems(rejectedCreates, 'REJECTED');
 
-        const mapRequestToCategory = (req: any, statusOverride?: string) => ({
-             ...req.data,
-             _id: statusOverride === 'REJECTED' ? 'rejected_' + req._id : 'pending_' + req._id,
-             requestId: req._id,
-             status: statusOverride || req.status,
-             isPending: statusOverride !== 'REJECTED',
-             isRejected: statusOverride === 'REJECTED'
-        });
-
-        const mappedPending = pendingCreates.map((req: any) => mapRequestToCategory(req, 'PENDING'));
-        const mappedRejected = rejectedCreates.map((req: any) => mapRequestToCategory(req, 'REJECTED'));
-
-        finalCategories = [...mappedPending, ...mappedRejected, ...categories];
+         finalCategories = [...mappedPending, ...mappedRejected, ...categories];
     }
 
     return NextResponse.json({

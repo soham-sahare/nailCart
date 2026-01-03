@@ -84,6 +84,7 @@ const OrderSchema = new mongoose.Schema({
 // Indexes for Performance
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ orderId: 1 });
+OrderSchema.index({ 'items.productName': 1 }); // For Top Products aggregation
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ customerName: 1 });
 OrderSchema.index({ mobileNumber: 1 });

@@ -10,6 +10,7 @@ import Modal from '@/components/ui/Modal';
 import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './categories.module.css';
+import { fetchCategories } from '@/lib/fetchers';
 
 interface Category {
   _id: string;
@@ -49,24 +50,17 @@ export default function CategoriesPage() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    fetchCategories();
+    loadCategories();
   }, [search, limit, page]);
 
-  const fetchCategories = async () => {
+  const loadCategories = async () => {
     setLoading(true);
-    try {
-      const res = await fetch(`/api/categories?search=${search}&limit=${limit}&page=${page}`);
-      const data = await res.json();
-      if (data.success) {
+    const data = await fetchCategories(search, limit, page);
+    if (data && data.data) {
         setCategories(data.data);
         setTotalPages(data.pagination ? data.pagination.pages : 1);
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('error', 'Error', 'Failed to fetch categories');
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const deleteRequest = async (requestId: string) => {
@@ -75,7 +69,7 @@ export default function CategoriesPage() {
           const res = await fetch(`/api/approvals/${requestId}`, { method: 'DELETE' });
           if(res.ok) {
               showToast('success', 'Cleared', 'Request removed');
-              fetchCategories();
+              loadCategories();
           } else {
               showToast('error', 'Error', 'Failed to remove request');
           }
@@ -145,7 +139,7 @@ export default function CategoriesPage() {
         const categoryName = categories.find(c => c._id === deleteId)?.name || 'Unknown';
         showToast('success', 'Deleted', `Category '${categoryName}' removed successfully`);
         setDeleteId(null);
-        fetchCategories();
+        loadCategories();
       } else {
         showToast('error', 'Error', 'Failed to delete category');
       }

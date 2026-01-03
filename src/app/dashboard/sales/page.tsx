@@ -11,6 +11,7 @@ import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './sales.module.css';
 import { formatDateIST } from '@/lib/dateUtils';
+import { fetchProducts } from '@/lib/fetchers';
 
 interface OrderItem {
   productName: string;
@@ -37,7 +38,6 @@ interface Order {
   type?: string;
   originalOrderId?: string;
   hasReturn?: boolean;
-  returnType?: string;
   returnType?: string;
   createdAt: string;
   createdBy?: string;
@@ -199,19 +199,17 @@ export default function SalesPage() {
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/products?limit=1000&status=ACTIVE'); // Fetch all active for dropdown
-      const data = await res.json();
-      setProducts(data.data);
-    } catch (err) {
-      console.error('Failed to fetch products', err);
+  const loadProducts = async () => {
+    // Lite payload for faster loading
+    const data = await fetchProducts('', 1000, 1, 'ACTIVE', 'name,sku,sellingPrice,quantity,category');
+    if (data && data.data) {
+        setProducts(data.data);
     }
   };
 
   useEffect(() => {
     fetchOrders();
-    fetchProducts();
+    loadProducts();
   }, [search, page, limit, selectedMonth]);
 
   // Recalculate total when items change

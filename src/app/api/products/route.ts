@@ -35,7 +35,14 @@ export async function GET(req: Request) {
       query.status = status;
     }
 
-    let products = await Product.find(query)
+    const select = searchParams.get('select');
+    let productsQuery = Product.find(query);
+
+    if (select) {
+        productsQuery = productsQuery.select(select.split(',').join(' '));
+    }
+
+    let products = await productsQuery
       .populate('category', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -45,67 +52,26 @@ export async function GET(req: Request) {
     const total = await Product.countDocuments(query);
     
     // 4. Check for Pending Updates/Deletes on the fetched products (ALL PAGES)
-    if (!status) { // Only checking if not filtering by specific status (Dashboard mode)
+    // 4. Check for Pending Updates/Deletes on the fetched products (ALL PAGES)
+    if (!status) {
+         const { getPendingModifications, augmentWithPendingStatus } = require('@/lib/approvalService');
          const productIds = products.map((p: any) => p._id);
-         const ApprovalRequest = require('@/models/ApprovalRequest').default;
-         
-         const pendingModifications = await ApprovalRequest.find({
-             model: 'PRODUCT',
-             status: 'PENDING',
-             targetId: { $in: productIds },
-             type: { $in: ['UPDATE', 'DELETE'] }
-         });
-
-         const modificationMap = new Map();
-         pendingModifications.forEach((req: any) => {
-             modificationMap.set(req.targetId.toString(), req.type);
-         });
-
-         products = products.map((p: any) => {
-             const action = modificationMap.get(p._id.toString());
-             if (action) {
-                 return { ...p, pendingAction: action, isPending: true }; // isPending tag for UI styling
-             }
-             return p;
-         });
+         const modificationMap = await getPendingModifications('PRODUCT', productIds);
+         products = augmentWithPendingStatus(products, modificationMap);
     }
 
     // 5. Check for Pending/Rejected CREATES (First Page Only)
     let finalProducts: any[] = products;
     
     if (page === 1 && !search && !status) {
-         const ApprovalRequest = require('@/models/ApprovalRequest').default;
+         // Session validated at start of function
+         const role = (session?.user as any)?.role || 'STAFF';
+         const { getGhostItems, mapRequestsToItems } = require('@/lib/approvalService');
          
-         // Fetch Pending Creates
-         const pendingCreates = await ApprovalRequest.find({
-            type: 'CREATE',
-            model: 'PRODUCT',
-            status: 'PENDING'
-         }).sort({ requestDate: -1 });
+         const { pendingCreates, rejectedCreates } = await getGhostItems('PRODUCT', role);
 
-         // Fetch Rejected Creates (Ghost items) - ONLY FOR STAFF
-         let rejectedCreates: any[] = [];
-         if (role === 'STAFF') {
-             rejectedCreates = await ApprovalRequest.find({
-                type: 'CREATE',
-                model: 'PRODUCT',
-                status: 'REJECTED'
-             }).sort({ requestDate: -1 });
-         }
-
-         const mapRequestToProduct = (req: any, statusOverride?: string) => ({
-             ...req.data,
-             _id: statusOverride === 'REJECTED' ? 'rejected_' + req._id : 'pending_' + req._id,
-             // Store original request ID for deletion/references
-             requestId: req._id, 
-             status: statusOverride || req.status,
-             isPending: statusOverride !== 'REJECTED', // Only pending if not rejected
-             isRejected: statusOverride === 'REJECTED',
-             category: req.data.categoryId ? { _id: req.data.categoryId, name: 'Pending...' } : null
-         });
-
-         const mappedPending = pendingCreates.map((req: any) => mapRequestToProduct(req, 'PENDING'));
-         const mappedRejected = rejectedCreates.map((req: any) => mapRequestToProduct(req, 'REJECTED'));
+         const mappedPending = mapRequestsToItems(pendingCreates, 'PENDING');
+         const mappedRejected = mapRequestsToItems(rejectedCreates, 'REJECTED');
          
          finalProducts = [...mappedPending, ...mappedRejected, ...products];
     }
@@ -147,7 +113,7 @@ export async function POST(req: Request) {
             type: 'CREATE',
             model: 'PRODUCT',
             data: body,
-            requestedBy: session.user.name,
+            requestedBy: session?.user?.name || 'Unknown',
             status: 'PENDING'
         });
 

@@ -50,6 +50,11 @@ const LedgerSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Indexes for Filtering
+LedgerSchema.index({ status: 1 });
+LedgerSchema.index({ type: 1 });
+LedgerSchema.index({ partyName: 1 });
+
 // Prevent Mongoose Recompilation Error
 if (process.env.NODE_ENV === 'development') {
     if (mongoose.models.Ledger) {
