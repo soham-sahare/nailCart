@@ -29,7 +29,7 @@ export async function GET(req: Request) {
             { $sort: { "_id.year": -1, "_id.month": -1 } }
         ]);
 
-        const months = result.map(item => {
+        const months = result.map((item: any) => {
             const date = new Date(item._id.year, item._id.month - 1, 1);
             return date.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
         });
