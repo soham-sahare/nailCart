@@ -263,9 +263,9 @@ export default function ProductsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
+                <tr key="loading-row"><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
               ) : products.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>No products found</td></tr>
+                <tr key="empty-row"><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>No products found</td></tr>
               ) : (
                 products.map((product) => {
                   const isRejected = product.isRejected;

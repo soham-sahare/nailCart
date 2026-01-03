@@ -15,6 +15,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 403 });
     }
 
+
+    const { searchParams } = new URL(req.url);
+    const mode = searchParams.get('mode');
+
+    if (mode === 'count') {
+        const count = await ApprovalRequest.countDocuments({ status: 'PENDING' });
+        return NextResponse.json({ success: true, count });
+    }
+
     const requests = await ApprovalRequest.find({ status: 'PENDING' }).sort({ createdAt: 1 });
 
     // Enrich requests with current data for UPDATE types

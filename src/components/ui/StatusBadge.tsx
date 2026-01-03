@@ -11,7 +11,7 @@ export default function StatusBadge({ status, variant }: StatusBadgeProps) {
 
   // Auto-detect variant if not provided
   if (!variant) {
-      const s = status.toUpperCase();
+      const s = (status || '').toUpperCase();
       if (['ACTIVE', 'CLEARED', 'COMPLETED', 'PAID'].includes(s)) badgeStyle = styles.success;
       else if (['PENDING', 'INACTIVE', 'PARTIAL', 'RETURNED', 'REFUNDED'].includes(s)) badgeStyle = styles.warning;
       else if (['CANCELLED', 'DELETED'].includes(s)) badgeStyle = styles.error;

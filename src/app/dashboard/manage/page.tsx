@@ -279,7 +279,8 @@ export default function ManagePage() {
                                     if (key === '__v') return null;
 
                                     const oldValue = viewRequest.currentData ? viewRequest.currentData[key] : undefined;
-                                    const isChanged = viewRequest.type === 'UPDATE' && oldValue !== undefined && JSON.stringify(oldValue) !== JSON.stringify(value);
+                                    // Use loose string comparison to handle mismatched types (number vs string)
+                                    const isChanged = viewRequest.type === 'UPDATE' && oldValue !== undefined && String(oldValue) !== String(value);
 
                                     const formatValue = (k: string, v: any) => {
                                         if (k === 'costPrice' || k === 'sellingPrice' || k === 'mrp') return `₹${v}`;

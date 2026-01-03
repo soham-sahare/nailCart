@@ -32,11 +32,31 @@ export default function TopBar() {
   }
 
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // Close menu when route changes
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+      if (role === 'OWNER') {
+          const fetchCount = async () => {
+              try {
+                  const res = await fetch('/api/approvals?mode=count');
+                  const data = await res.json();
+                  if (data.success) {
+                      setPendingCount(data.count);
+                  }
+              } catch (err) {
+                  console.error('Failed to fetch approval count', err);
+              }
+          };
+          fetchCount();
+          const interval = setInterval(fetchCount, 30000); // Poll every 30s
+          return () => clearInterval(interval);
+      }
+  }, [role]);
 
   return (
     <>
@@ -68,6 +88,24 @@ export default function TopBar() {
               >
                 <Icon size={18} />
                 <span>{link.name}</span>
+                {link.name === 'Manage' && pendingCount > 0 && (
+                    <span style={{ 
+                        background: '#ef4444', 
+                        color: 'white', 
+                        fontSize: '0.65rem', 
+                        fontWeight: 'bold', 
+                        minWidth: '16px', 
+                        height: '16px', 
+                        borderRadius: '50%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        marginLeft: '5px',
+                        padding: '0 4px'
+                    }}>
+                        {pendingCount}
+                    </span>
+                )}
               </Link>
             );
           })}
@@ -122,6 +160,24 @@ export default function TopBar() {
                 >
                   <Icon size={20} />
                   <span>{link.name}</span>
+                  {link.name === 'Manage' && pendingCount > 0 && (
+                    <span style={{ 
+                        background: '#ef4444', 
+                        color: 'white', 
+                        fontSize: '0.65rem', 
+                        fontWeight: 'bold', 
+                        minWidth: '18px', 
+                        height: '18px', 
+                        borderRadius: '50%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        marginLeft: 'auto',
+                        marginRight: '1rem'
+                    }}>
+                        {pendingCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}

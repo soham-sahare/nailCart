@@ -205,11 +205,11 @@ export default function CategoriesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
+                <tr key="loading-row"><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>Loading...</td></tr>
               ) : categories.length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>No categories found</td></tr>
+                <tr key="empty-row"><td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>No categories found</td></tr>
               ) : (
-                categories.map((category) => {
+                categories.map((category, index) => {
                   const isRejected = category.isRejected;
                   const isPending = category.isPending;
                   const pendingAction = category.pendingAction;
@@ -220,7 +220,7 @@ export default function CategoriesPage() {
                   else if (isPending) rowStyle = { opacity: 0.8, background: 'rgba(245, 158, 11, 0.05)' };
 
                   return (
-                  <tr key={category._id} style={rowStyle}>
+                  <tr key={category._id || category.requestId || `cat-${index}`} style={rowStyle}>
                     <td>
                          {category.name} 
                          {isPending && !pendingAction && <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', color: '#f59e0b' }}>(Pending Create)</span>}
