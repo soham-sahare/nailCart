@@ -21,6 +21,9 @@ const UserSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Indexes
+UserSchema.index({ role: 1 });
+
 // Prevent Mongoose Recompilation Error
 if (process.env.NODE_ENV === 'development') {
     if (mongoose.models.User) {

@@ -4,7 +4,7 @@ const ProductSchema = new mongoose.Schema({
   sku: {
     type: String,
     required: [true, 'Please provide a SKU'],
-    unique: true,
+    // unique: true, // Removed in favor of compound index (sku + name)
   },
   name: {
     type: String,
@@ -45,5 +45,6 @@ const ProductSchema = new mongoose.Schema({
 ProductSchema.index({ name: 1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ status: 1 });
+ProductSchema.index({ sku: 1, name: 1 }, { unique: true }); // Compound Unique Key
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);
