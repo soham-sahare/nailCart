@@ -1,6 +1,4 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  serverExternalPackages: ['mongoose'],
-};
+const nextConfig = {};
 
 export default nextConfig;
