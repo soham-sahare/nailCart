@@ -5,7 +5,7 @@ import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-export async function PUT(req: Request, { params }: { params: { userid: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ userid: string }> }) {
   try {
     await dbConnect();
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function PUT(req: Request, { params }: { params: { userid: string }
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 403 });
     }
 
-    const { userid } = params;
+    const { userid } = await params;
     const body = await req.json();
     const { role } = body;
 
@@ -44,7 +44,7 @@ export async function PUT(req: Request, { params }: { params: { userid: string }
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { userid: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ userid: string }> }) {
     try {
       await dbConnect();
       const session = await getServerSession(authOptions);
@@ -53,7 +53,7 @@ export async function DELETE(req: Request, { params }: { params: { userid: strin
         return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 403 });
       }
   
-      const { userid } = params;
+      const { userid } = await params;
   
       // Prevent deleting self
       // Note: session.user.id might not be populated in session object if not customized. 
