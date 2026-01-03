@@ -42,7 +42,8 @@ export async function POST(req: Request) {
     const newUser = await User.create({
         username,
         password: hashedPassword,
-        role: 'STAFF'
+        role: 'STAFF',
+        mustChangePassword: true
     });
 
     return NextResponse.json({ success: true, data: { username: newUser.username, role: newUser.role, _id: newUser._id } }, { status: 201 });

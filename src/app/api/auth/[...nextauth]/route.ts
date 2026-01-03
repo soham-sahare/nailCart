@@ -20,6 +20,25 @@ export const authOptions: NextAuthOptions = {
 
         await dbConnect();
 
+        // 1. Seed Owner if not exists
+        const ownerExists = await User.findOne({ role: 'OWNER' });
+        
+        if (!ownerExists && 
+            process.env.OWNER_USERNAME && 
+            process.env.OWNER_PASSWORD && 
+            credentials.username === process.env.OWNER_USERNAME
+        ) {
+            console.log("Seeding Owner Account...");
+            const hashedPassword = await bcrypt.hash(process.env.OWNER_PASSWORD, 10);
+            await User.create({
+                username: process.env.OWNER_USERNAME,
+                password: hashedPassword,
+                role: 'OWNER',
+                mustChangePassword: false
+            });
+            console.log("Owner Account Seeded");
+        }
+
         const user = await User.findOne({ username: credentials.username });
 
         if (!user) {
@@ -38,14 +57,15 @@ export const authOptions: NextAuthOptions = {
         return {
           id: user._id.toString(),
           name: user.username,
-          role: user.role, // Add this
+          role: user.role,
+          mustChangePassword: user.mustChangePassword
         };
       }
     })
   ],
   session: {
     strategy: "jwt",
-    maxAge: 12 * 60 * 60, // 12 hours in seconds
+    maxAge: 12 * 60 * 60, // 12 hours
   },
   pages: {
     signIn: '/admin/login',
@@ -54,14 +74,16 @@ export const authOptions: NextAuthOptions = {
       async session({ session, token }) {
         if (session.user) {
             session.user.name = token.name;
-            (session.user as any).role = token.role; // Pass role to session
+            (session.user as any).role = token.role;
+            (session.user as any).mustChangePassword = token.mustChangePassword;
         }
         return session;
     },
     async jwt({ token, user }) {
         if (user) {
             token.name = user.name;
-            token.role = (user as any).role; // Store role in token
+            token.role = (user as any).role;
+            token.mustChangePassword = (user as any).mustChangePassword;
             token.loginTime = Date.now();
         }
         return token;

@@ -12,6 +12,11 @@ import Link from 'next/link';
 import { formatDateIST } from '@/lib/dateUtils';
 import dynamic from 'next/dynamic';
 import StatCard from '@/components/dashboard/StatCard';
+import FilterBar from '@/components/dashboard/FilterBar';
+import TopSellers from '@/components/dashboard/TopSellers';
+import TopProducts from '@/components/dashboard/TopProducts';
+import CategoryHeatmap from '@/components/dashboard/CategoryHeatmap';
+import OrdersTrendGraph from '@/components/dashboard/OrdersTrendGraph';
 
 const SalesTrendGraph = dynamic(() => import('@/components/dashboard/SalesTrendGraph'), {
   loading: () => <div className="glass" style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>Loading Graph...</div>,
@@ -31,10 +36,12 @@ interface DashboardStats {
     netProfit?: number;
     grossProfit?: number;
   };
-  salesTrend: { date: string; sellingPrice: number; costPrice: number; profit: number }[];
+  salesTrend: { date: string; sellingPrice: number; costPrice: number; profit: number; orders: number }[];
   categoryDistribution: { name: string; value: number }[];
   recentSales: any[];
   topProducts: { name: string; sales: number }[];
+  topSellers: { name: string; value: number; total: number }[];
+  topCategories: { name: string; value: number }[];
   lowStockProducts: { name: string; quantity: number; _id: string }[];
   topCustomers: { name: string; total: number; orders: number }[];
   weeklyPattern: { day: string; sales: number }[];
@@ -46,17 +53,29 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [frequency, setFrequency] = useState('7d');
+  const [range, setRange] = useState('this_month');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [graphLoading, setGraphLoading] = useState(false);
 
   useEffect(() => {
-    fetchStats();
-  }, [frequency]); // Refetch when frequency changes
+    // If range is custom, we wait for user to click Apply (which calls fetchStats manually? or we check valid dates)
+    // Actually FilterBar usually triggers fetch on Apply for custom.
+    // For others, it triggers immediately.
+    if (range !== 'custom') {
+        fetchStats();
+    }
+  }, [range]);
 
   const fetchStats = async () => {
-    if (stats) setGraphLoading(true); // Show loading only on graph if already loaded once
+    if (stats) setGraphLoading(true);
     try {
-      const res = await fetch(`/api/dashboard/stats?frequency=${frequency}`);
+      let query = `range=${range}`;
+      if (range === 'custom') {
+          if (!customRange.from || !customRange.to) return; // Don't fetch if incomplete
+          query += `&from=${customRange.from}&to=${customRange.to}`;
+      }
+
+      const res = await fetch(`/api/dashboard/stats?${query}`);
       const data = await res.json();
       if (res.ok) {
         setStats(data.data);
@@ -69,10 +88,11 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !stats) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading Analytics...</div>;
   }
 
+  // Safe fallback if stats null but loading false (error case)
   if (!stats) return null;
 
   return (
@@ -86,6 +106,15 @@ export default function DashboardPage() {
           Welcome back, <strong>{session?.user?.name}</strong>! Here's what's happening.
         </p>
       </div>
+
+      {/* Filter Bar */}
+      <FilterBar 
+        range={range} 
+        setRange={setRange} 
+        customRange={customRange} 
+        setCustomRange={setCustomRange} 
+        onApply={fetchStats}
+      />
       
       {/* 1. Metrics Grid */}
       <div style={{ 
@@ -101,13 +130,13 @@ export default function DashboardPage() {
             bg="bg-green-500/10"
         />
         <StatCard 
-            title="Net Profit" 
-            value={`₹${stats.metrics.netProfit?.toLocaleString() || 69}`} 
-            icon={FiTrendingUp}
-            color="text-purple-500"
-            bg="bg-purple-500/10"
+            title="Profit" 
+            value={`₹${stats.metrics.grossProfit?.toLocaleString() || 0}`} 
+            icon={FiActivity}
+            color="text-teal-500"
+            bg="bg-teal-500/10"
         />
-        <StatCard 
+         <StatCard 
             title="Total Expenses" 
             value={`₹${stats.metrics.totalExpenses?.toLocaleString() || 0}`} 
             icon={FiArrowRight}
@@ -137,47 +166,47 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 2. Charts Section Row 1 */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-        gap: '1.5rem', 
-      }}>
-        {/* Sales Trend */}
-        <SalesTrendGraph 
-            data={stats.salesTrend} 
-            frequency={frequency} 
-            onFrequencyChange={setFrequency}
-            loading={graphLoading} 
-        />
-
-        {/* Weekly Pattern */}
-        <div className="glass" style={{ padding: '1.5rem', borderRadius: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Busiest Days (Weekly Pattern)</h3>
-            <div style={{ height: '300px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.weeklyPattern}>
-                         <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
-                         <XAxis dataKey="day" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                         <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
-                         <Tooltip 
-                            cursor={{fill: 'transparent'}}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                            formatter={(value: any) => [`₹${value}`, 'Revenue']}
-                         />
-                         <Bar dataKey="sales" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={30} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
-      </div>
-
-       {/* 3. Tables/Lists Row */}
+      {/* 2. Charts: Sales + Orders */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', 
         gap: '1.5rem', 
       }}>
+        <div style={{ minHeight: '400px' }}>
+             <SalesTrendGraph 
+                data={stats.salesTrend} 
+                frequency={range} 
+                onFrequencyChange={() => {}} 
+                loading={graphLoading} 
+            />
+        </div>
+        <div style={{ minHeight: '400px' }}>
+            <OrdersTrendGraph 
+                data={stats.salesTrend.map(d => ({ date: d.date, orders: d.orders || 0 }))} 
+                loading={graphLoading} 
+            />
+        </div>
+      </div>
+
+       {/* 3. Products & Heatmap */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
+        gap: '1.5rem', 
+      }}>
+        <TopProducts data={stats.topProducts} />
+        <CategoryHeatmap data={stats.topCategories} />
+      </div>
+
+       {/* 4. Sellers, Customers, Low Stock */}
+       <div style={{ 
+         display: 'grid', 
+         gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', 
+         gap: '1.5rem', 
+       }}>
+        {/* Top Sellers */}
+        <TopSellers data={stats.topSellers} />
+
         {/* Top Customers */}
         <div className="glass" style={{ padding: '1.5rem', borderRadius: '1.5rem' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -199,33 +228,17 @@ export default function DashboardPage() {
                             <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>₹{c.total.toLocaleString()}</td>
                         </tr>
                     ))}
+                    {stats.topCustomers.length === 0 && (
+                        <tr><td colSpan={3} style={{padding: '1rem', textAlign:'center', color:'#888', fontStyle:'italic'}}>No repeat customers in this period</td></tr>
+                    )}
                 </tbody>
             </table>
         </div>
 
-        {/* Top Products */}
-        <div className="glass" style={{ padding: '1.5rem', borderRadius: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Top Selling Products</h3>
-            <div style={{ height: '220px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.topProducts} layout="vertical" margin={{ left: 0, right: 30 }}>
-                         <CartesianGrid strokeDasharray="3 3" stroke="#eee" horizontal={false} />
-                         <XAxis type="number" stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
-                         <YAxis dataKey="name" type="category" stroke="#888" fontSize={11} tickLine={false} axisLine={false} width={100} />
-                         <Tooltip 
-                            cursor={{fill: 'transparent'}}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                         />
-                         <Bar dataKey="sales" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={15} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
-
-         {/* Category & Low Stock */}
-         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-             <div className="glass" style={{ padding: '1.5rem', borderRadius: '1.5rem', flex: 1 }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+         {/* Low Stock */}
+         <div style={{ display: 'flex', flexDirection: 'column' }}>
+             <div className="glass custom-scrollbar" style={{ padding: '1.5rem', borderRadius: '1.5rem', maxHeight: '350px', overflowY: 'auto' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.8)', padding: '5px 0', zIndex: 10 }}>
                     <FiAlertCircle /> Low Stock
                 </h3>
                  {stats.lowStockProducts.length === 0 ? (
@@ -245,6 +258,26 @@ export default function DashboardPage() {
             </div>
          </div>
       </div>
+      
+       {/* 5. Weekly Pattern */}
+       <div className="glass" style={{ padding: '1.5rem', borderRadius: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Busiest Days (Weekly Pattern)</h3>
+            <div style={{ height: '250px', width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stats.weeklyPattern}>
+                         <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
+                         <XAxis dataKey="day" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
+                         <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
+                         <Tooltip 
+                            cursor={{fill: 'transparent'}}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                            formatter={(value: any) => [`₹${value}`, 'Revenue']}
+                         />
+                         <Bar dataKey="sales" fill="#a78bfa" radius={[4, 4, 0, 0]} barSize={40} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
 
     </div>
   );

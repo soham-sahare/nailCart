@@ -49,12 +49,6 @@ function LoginForm() {
           Log in to your NailCart store
         </p>
 
-        {registered && (
-          <div className={styles.success}>
-            Account created! Please log in.
-          </div>
-        )}
-
         {error && <div className={styles.error}>{error}</div>}
 
         <form onSubmit={handleSubmit} className={styles.form}>
@@ -84,10 +78,6 @@ function LoginForm() {
             {loading ? 'Logging In...' : 'Log In'}
           </button>
         </form>
-
-        <p className={styles.footer}>
-          Don't have an account? <Link href="/signup">Sign Up</Link>
-        </p>
       </div>
     </div>
   );

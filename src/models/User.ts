@@ -14,6 +14,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     enum: ['OWNER', 'STAFF'],
     default: 'STAFF'
+  },
+  mustChangePassword: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

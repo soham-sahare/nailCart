@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import styles from './SalesTrendGraph.module.css';
 
 interface SalesData {
@@ -39,30 +39,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   };
 
 export default function SalesTrendGraph({ data, frequency, onFrequencyChange, loading }: SalesTrendGraphProps) {
-  const frequencies = [
-    { label: '7 Days', value: '7d' },
-    { label: '15 Days', value: '15d' },
-    { label: '1 Month', value: '1m' },
-    { label: '3 Months', value: '3m' },
-    { label: '6 Months', value: '6m' },
-    { label: '1 Year', value: '12m' },
-  ];
-
+  
   return (
     <div className={`glass ${styles.container}`}>
       <div className={styles.header}>
         <h3 className={styles.title}>Sales & Profit Trend</h3>
-        <div className={styles.controls}>
-            {frequencies.map((freq) => (
-                <button
-                    key={freq.value}
-                    className={`${styles.freqBtn} ${frequency === freq.value ? styles.active : ''}`}
-                    onClick={() => onFrequencyChange(freq.value)}
-                >
-                    {freq.label}
-                </button>
-            ))}
-        </div>
       </div>
 
       <div className={styles.chartContainer}>
@@ -72,24 +53,10 @@ export default function SalesTrendGraph({ data, frequency, onFrequencyChange, lo
             </div>
         ) : (
             <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <LineChart
                 data={data}
                 margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
-                <defs>
-                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                     <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                    </linearGradient>
-                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
                 <XAxis 
                     dataKey="date" 
@@ -107,35 +74,25 @@ export default function SalesTrendGraph({ data, frequency, onFrequencyChange, lo
                 <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '3 3' }} />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 
-                <Area 
+                <Line 
                     type="monotone" 
                     dataKey="sellingPrice" 
-                    name="Sales" 
-                    stroke="var(--primary)" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorSales)" 
+                    name="Total Revenue" 
+                    stroke="#ec4899" 
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#ec4899', strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
                 />
-                 <Area 
+                 <Line 
                     type="monotone" 
                     dataKey="profit" 
                     name="Profit" 
                     stroke="#10b981" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorProfit)" 
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
                 />
-                 <Area 
-                    type="monotone" 
-                    dataKey="costPrice" 
-                    name="Cost" 
-                    stroke="#ef4444" 
-                    strokeWidth={1}
-                    fillOpacity={1} 
-                    fill="url(#colorCost)" 
-                    strokeDasharray="5 5"
-                />
-            </AreaChart>
+            </LineChart>
             </ResponsiveContainer>
         )}
       </div>
