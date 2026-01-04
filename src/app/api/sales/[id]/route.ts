@@ -2,6 +2,25 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  try {
+    const params = await props.params;
+    await dbConnect();
+    const order = await Order.findById(params.id);
+    if (!order) {
+        // Try looking up by orderId just in case
+        const orderByCustomId = await Order.findOne({ orderId: params.id });
+        if(orderByCustomId) {
+             return NextResponse.json({ success: true, data: orderByCustomId });
+        }
+        return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, data: order });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, message: error.message }, { status: 400 });
+  }
+}
+
 export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
     const params = await props.params;

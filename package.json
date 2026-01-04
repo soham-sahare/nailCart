@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
@@ -16,6 +17,7 @@
     "next": "15.1.11",
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
+    "puppeteer-core": "^24.34.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
@@ -26,6 +28,7 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "puppeteer": "^24.34.0",
     "typescript": "latest"
   }
 }

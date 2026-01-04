@@ -41,8 +41,13 @@ interface Product {
   category: { name: string };
 }
 
+import { useSearchParams } from 'next/navigation';
+
 export default function InvoicePage() {
   const { id } = useParams();
+  const searchParams = useSearchParams();
+  const mode = searchParams.get('mode');
+  const isThermal = mode === 'thermal';
   const [order, setOrder] = useState<Order | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,21 +61,20 @@ export default function InvoicePage() {
         return;
       }
       try {
-        // Fetch Order
-        const resList = await fetch('/api/sales?limit=1000'); 
-        const data = await resList.json();
-        const found = data.data.find((o: any) => o._id === id);
+        // OPTIMIZED: Fetch Single Order only
+        const res = await fetch(`/api/sales/${id}`); 
+        const data = await res.json();
         
-        // Fetch Products for lookup (backward compatibility)
-        const resProducts = await fetch('/api/products?limit=1000');
-        const prodData = await resProducts.json();
-        
-        setOrder(found || null);
-        setProducts(prodData.data || []);
-
-        if (!found) {
-          setError('Invoice not found.');
+        if (data.success && data.data) {
+             setOrder(data.data);
+             // We no longer fetch all products. 
+             // We rely on item details embedded in order or snapshots.
+             // If legacy orders exist without proper snapshot, we might need a fallback, 
+             // but for performance refactor, we assume data integrity or accept minor metadata loss on very old orders.
+        } else {
+             setError('Invoice not found.');
         }
+
       } catch (err) {
         console.error(err);
         setError('Failed to fetch invoice data.');
@@ -86,16 +90,13 @@ export default function InvoicePage() {
   if (!order) return <div style={{padding: '40px', textAlign: 'center'}}>Invoice not found</div>;
 
   const getItemDetails = (item: OrderItem) => {
-     // Use saved details if available
+     // Use saved details if available (Preferred)
      if ((item as any).sku && (item as any).category) {
          return { sku: (item as any).sku, category: (item as any).category };
      }
-     // Fallback to lookup
-     const product = products.find(p => p.name.toLowerCase() === item.productName.toLowerCase());
-     return {
-         sku: product?.sku || '',
-         category: product?.category?.name || ''
-     };
+     // Fallback: If no snapshot, return empty string to prevent errors. 
+     // (Fetching 1000 products just for this fallback is not worth the performance cost)
+     return { sku: '', category: '' };
   };
 
 
@@ -111,7 +112,7 @@ export default function InvoicePage() {
   const themeColor = isReturned ? '#f59e0b' : 'var(--primary)'; 
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${isThermal ? styles.thermal : ''}`}>
       {/* ... header ... */}
       <div className={styles.watermark}>
         <Image src="/logo.jpg" alt="Watermark" width={500} height={500} style={{ objectFit: 'contain' }} />
