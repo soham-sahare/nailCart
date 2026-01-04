@@ -10,7 +10,19 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   try {
     // Determine Base URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    // Priority: 
+    // 1. NEXT_PUBLIC_APP_URL (Manual override)
+    // 2. VERCEL_URL (Automatically set by Vercel)
+    // 3. NEXTAUTH_URL (NextAuth standard)
+    // 4. Localhost (Fallback)
+    
+    let domain = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
+
+    if (!domain && process.env.VERCEL_URL) {
+        domain = `https://${process.env.VERCEL_URL}`;
+    }
+
+    const baseUrl = domain || 'http://localhost:3000';
     const invoiceUrl = `${baseUrl}/invoice/${id}/html?mode=${type}`;
 
     console.log(`Generating PDF for: ${invoiceUrl}`);
