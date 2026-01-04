@@ -413,7 +413,7 @@ export default function SalesPage() {
     msg += `Hi *${order.customerName}*, thank you for shopping at NailCart! Here are your purchase details.\n\n`;
 
     msg += `\uD83C\uDD94 *Bill No:* #${order.orderId}\n`;
-    msg += `\uD83D\uDCC5 *Date:* ${new Date().toLocaleDateString('en-IN')}\n\n`;
+    msg += `\uD83D\uDCC5 *Date:* ${formatDateIST(order.createdAt)}\n\n`;
 
     msg += `\uD83D\uDED2 *YOUR ITEMS*\n`;
     order.items.forEach((item, index) => {
@@ -456,7 +456,7 @@ export default function SalesPage() {
     let msg = `\u21A9\uFE0F *RETURN RECEIPT* \u21A9\uFE0F\n`;
     msg += `Hi *${order.customerName}*, we have processed your return for Bill #${order.orderId}.\n\n`;
 
-    msg += `\uD83D\uDCC5 *Date:* ${new Date().toLocaleDateString('en-IN')}\n\n`;
+    msg += `\uD83D\uDCC5 *Date:* ${formatDateIST(new Date().toISOString())}\n\n`;
 
     msg += `\uD83D\uDCE6 *RETURNED ITEMS*\n`;
     returnedItems.forEach((item, index) => {
