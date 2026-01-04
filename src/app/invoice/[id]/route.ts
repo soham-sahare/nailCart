@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
-// import chromium from '@sparticuz/chromium';
-// import puppeteerCore from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
+import puppeteerCore from 'puppeteer-core';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { id } = await params;
@@ -15,18 +15,17 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     console.log(`Generating PDF for: ${invoiceUrl}`);
 
-    // Launch Browser
-    // Note: For production (Vercel), we would need @sparticuz/chromium logic here.
-    // For now, using standard puppeteer for local dev.
-    
-    // Launch Browser (Singleton Pattern for Local Dev)
     let browser;
     if (process.env.NODE_ENV === 'production') {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        // PRODUCTION: Use @sparticuz/chromium and puppeteer-core
+        browser = await puppeteerCore.launch({
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
         });
     } else {
+        // DEVELOPMENT: Use standard puppeteer with singleton pattern
         if (!(global as any).puppeteerBrowser) {
             (global as any).puppeteerBrowser = await puppeteer.launch({
                 headless: true,
@@ -42,14 +41,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (type === 'thermal') {
         await page.setViewport({ width: 302, height: 800 }); // ~80mm width (302px at 96dpi approx)
     } else {
-        await page.setViewport({ width: 1200, height: 1600 });
+        await page.setViewport({ width: 1200, height: 1600 }); // A4 Ratio
     }
-
-    // Authenticate (if needed) - For now assuming Invoice page is public or we bye-pass auth for localhost
-    // If auth is required, we might need to pass cookies. 
-    // OPTION: If /invoice/[id] is public, no problem. If protected, we need cookies.
-    // Checking previous analysis: Middleware might block it. 
-    // Let's assume for now we might face issues if protected.
     
     // OPTIMIZED: Wait for the specific content selector (Much faster than networkidle0)
     // We wait for the totals box which renders after data is fetched.
@@ -63,7 +56,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             width: '80mm',
             printBackground: true,
             margin: { top: '0', right: '0', bottom: '0', left: '0' },
-            pageRanges: '1' // Thermal usually continuous, but let's try auto
+            pageRanges: '1' // Thermal usually continuous
         });
     } else {
         pdfBuffer = await page.pdf({
@@ -76,7 +69,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (process.env.NODE_ENV === 'production') {
         await browser.close();
     } else {
-        await page.close(); // Only close the tab, keep browser open
+        await page.close(); // Only close the tab, keep browser open in dev
     }
 
     return new NextResponse(pdfBuffer as any, {
