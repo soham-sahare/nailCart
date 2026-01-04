@@ -13,13 +13,19 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // Priority: 
     // 1. NEXT_PUBLIC_APP_URL (Manual override)
     // 2. VERCEL_URL (Automatically set by Vercel)
-    // 3. NEXTAUTH_URL (NextAuth standard)
-    // 4. Localhost (Fallback)
+    // 3. Request Header (Host) - Most reliable dynamic fallback
     
     let domain = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
 
     if (!domain && process.env.VERCEL_URL) {
         domain = `https://${process.env.VERCEL_URL}`;
+    }
+
+    // Fallback: Use the incoming request's host
+    if (!domain) {
+      const host = req.headers.get('host');
+      const protocol = host?.includes('localhost') ? 'http' : 'https';
+      if (host) domain = `${protocol}://${host}`;
     }
 
     const baseUrl = domain || 'http://localhost:3000';
