@@ -28,6 +28,7 @@
 }
 
 /* Header */
+/* Header */
 .header {
     display: flex;
     justify-content: space-between;
@@ -35,14 +36,22 @@
     margin-bottom: 40px;
     border-bottom: 2px solid #eee;
     padding-bottom: 20px;
+    position: relative; /* Context for absolute positioning if needed */
 }
 
-.customerInfo {
+/* New Title Styling */
+.mainTitle {
+    display: none; /* Hidden by default on desktop, assuming minimal look */
+}
+
+.headerLeft {
     text-align: left;
+    flex: 1;
 }
 
-.ownerInfo {
+.headerRight {
     text-align: right;
+    flex: 1;
 }
 
 .title {
@@ -195,10 +204,39 @@
     .header {
         flex-direction: column;
         gap: 1.5rem;
+        padding-top: 3rem; /* Make space for the absolute title */
+    }
+
+    /* Mobile Title Positioning */
+    .mainTitle {
+        display: block;
+        position: absolute;
+        top: 0;
+        right: 0;
+        font-size: 1.25rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .headerLeft, 
+    .headerRight {
+        text-align: center !important;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* Move Store Info (Right) to Top */
+    .headerRight {
+        order: -1;
+        margin-bottom: 1rem;
     }
 
     .ownerInfo {
-        text-align: left;
+        /* Legacy class override if needed, but we switched to headerRight */
+        text-align: center;
     }
 
     .table {

@@ -639,7 +639,7 @@ export default function SalesPage() {
                     <td>
                       <span 
                           style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '3px' }}
-                          onClick={() => setViewingOrder(order)}
+                          onClick={() => window.open(`/invoice/${order._id}`, '_blank')}
                         >
                           {order.orderId}
                       </span>
