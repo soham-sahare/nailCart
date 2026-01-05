@@ -32,11 +32,11 @@
 .header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center; /* Align items vertically in the center */
     margin-bottom: 40px;
     border-bottom: 2px solid #eee;
     padding-bottom: 20px;
-    position: relative; /* Context for absolute positioning if needed */
+    position: relative;
 }
 
 /* New Title Styling */
@@ -47,6 +47,12 @@
 .headerLeft {
     text-align: left;
     flex: 1;
+}
+
+.headerCenter {
+    text-align: center;
+    flex: 0 0 auto; /* Do not grow or shrink */
+    margin: 0 20px;
 }
 
 .headerRight {

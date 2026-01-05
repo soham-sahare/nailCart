@@ -87,6 +87,12 @@ export default function InvoicePage() {
     if (id) fetchData();
   }, [id]);
 
+  useEffect(() => {
+    if (order?.orderId) {
+      document.title = `${order.orderId} | NAILCART`;
+    }
+  }, [order]);
+
   if (loading) return <div style={{padding: '40px', textAlign: 'center'}}>Loading Invoice...</div>;
   if (!order) return <div style={{padding: '40px', textAlign: 'center'}}>Invoice not found</div>;
 
@@ -129,7 +135,7 @@ export default function InvoicePage() {
             <div className={styles.headerLeft}>
               
                {/* Invoice IDs (Top Left) */}
-              <div style={{ marginBottom: '2rem' }}>
+              <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       {isReturned ? (isRefundOnly ? 'REFUND ID' : 'RETURN INVOICE NO') : 'INVOICE NO'}
                   </div>
@@ -156,43 +162,23 @@ export default function InvoicePage() {
                   <div style={{ fontSize: '0.9rem', color: '#666' }}>
                       Date: <span style={{ fontWeight: 600, color: '#000' }}>{formatDateIST(order.createdAt)}</span>
                   </div>
-
-                  
-
               </div>
-
-
-              {/* {order.paymentMethod && (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'transparent', borderRadius: '8px', border: '1px solid none' }}>
-                <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Method</div>
-                <div style={{ fontSize: '1rem', fontWeight: 600 }}>{order.paymentMethod}</div>
-                {order.paymentMethod === 'SPLIT' && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
-                        <div>
-                            <span style={{ color: '#888' }}>UPI: </span>
-                            <span style={{ fontWeight: 600 }}>₹{order.upiAmount || 0}</span>
-                        </div>
-                        <div>
-                            <span style={{ color: '#888' }}>Cash: </span>
-                            <span style={{ fontWeight: 600 }}>₹{order.cashAmount || 0}</span>
-                        </div>
-                    </div>
-                )}
             </div>
-        )} */}
+
+            {/* CENTER COLUMN: Logo */}
+            <div className={styles.headerCenter}>
+                <Image src="/logo.jpg" alt="Logo" width={100} height={100} style={{ borderRadius: '50%', objectFit: 'cover' }} />
             </div>
 
             {/* RIGHT COLUMN: Store Info */}
             <div className={styles.headerRight}>
-                <Image src="/logo.jpg" alt="Logo" width={70} height={70} style={{ borderRadius: '50%', marginBottom: '10px' }} />
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em', marginBottom: '4px' }}>NailCart</div>
-                {/* <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#444', marginBottom: '10px' }}>GSTIN: 27ABCDE1234F1Z5</div> */}
 
                 <div className={styles.value} style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#555' }}>
                     Shraddha Chowk, Plot No. 14,<br />
                     Opp. SS Collection, Chakradhar Nagar,<br />
                     Jawahar Nagar, Ayodhya Nagar,<br />
-                    Nagpur, Maharashtra 440024<br />
+                    Nagpur, Maharashtra - 440024<br />
                     <span style={{ fontWeight: 600, color: '#000' }}>+91 8600220632</span>
                 </div>
             </div>
@@ -216,7 +202,7 @@ export default function InvoicePage() {
                         <tr key={idx}>
                             <td>
                                 <div style={{ fontWeight: 600 }}>{item.productName}</div>
-                                {item.mrp && item.mrp > item.price && (
+                                {/* {item.mrp && item.mrp > item.price && (
                                     <span style={{ fontSize: '0.75rem', textDecoration: 'line-through', color: '#666', marginRight: '5px' }}>
                                         ₹{item.mrp}
                                     </span>
@@ -226,7 +212,7 @@ export default function InvoicePage() {
                                         {details.sku && <span style={{ marginRight: '8px' }}>#{details.sku}</span>}
                                         {details.category && <span>#{details.category}</span>}
                                     </div>
-                                )}
+                                )} */}
                             </td>
                             <td>{item.quantity}</td>
                             <td>₹{item.price}
