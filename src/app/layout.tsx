@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Montserrat } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { Providers } from './providers';
 import NetBackground from '@/components/NetBackground';
@@ -23,6 +24,7 @@ export default function RootLayout({
           <NetBackground />
           {children}
         </Providers>
+        <Analytics />
       </body>
     </html>
   );

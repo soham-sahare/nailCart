@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@sparticuz/chromium": "^143.0.4",
+    "@vercel/analytics": "^1.6.1",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
@@ -28,6 +29,7 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "eslint": "^9.39.2",
     "puppeteer": "^24.34.0",
     "typescript": "latest"
   }
