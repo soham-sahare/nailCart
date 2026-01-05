@@ -156,7 +156,30 @@ export default function InvoicePage() {
                   <div style={{ fontSize: '0.9rem', color: '#666' }}>
                       Date: <span style={{ fontWeight: 600, color: '#000' }}>{formatDateIST(order.createdAt)}</span>
                   </div>
+
+                  
+
               </div>
+
+
+              {/* {order.paymentMethod && (
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'transparent', borderRadius: '8px', border: '1px solid none' }}>
+                <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Method</div>
+                <div style={{ fontSize: '1rem', fontWeight: 600 }}>{order.paymentMethod}</div>
+                {order.paymentMethod === 'SPLIT' && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
+                        <div>
+                            <span style={{ color: '#888' }}>UPI: </span>
+                            <span style={{ fontWeight: 600 }}>₹{order.upiAmount || 0}</span>
+                        </div>
+                        <div>
+                            <span style={{ color: '#888' }}>Cash: </span>
+                            <span style={{ fontWeight: 600 }}>₹{order.cashAmount || 0}</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )} */}
             </div>
 
             {/* RIGHT COLUMN: Store Info */}
@@ -245,11 +268,9 @@ export default function InvoicePage() {
                     <span>₹{order.totalAmount}</span>
                 </div>
                 {/* Payment Method */}
-        {order.paymentMethod && (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'transparent', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Method</div>
-                <div style={{ fontSize: '1rem', fontWeight: 600 }}>{order.paymentMethod}</div>
-                {order.paymentMethod === 'SPLIT' && (
+                <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                      Payment Method: <span style={{ fontWeight: 600, color: '#000' }}>{order.paymentMethod}</span>
+                      {order.paymentMethod === 'SPLIT' && (
                     <div style={{ marginTop: '0.5rem', display: 'flex', gap: '2rem', fontSize: '0.9rem' }}>
                         <div>
                             <span style={{ color: '#888' }}>UPI: </span>
@@ -261,8 +282,8 @@ export default function InvoicePage() {
                         </div>
                     </div>
                 )}
-            </div>
-        )}
+                  </div>
+        
             </div>
         </div>
 
