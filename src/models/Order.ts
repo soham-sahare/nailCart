@@ -21,7 +21,8 @@ const OrderSchema = new mongoose.Schema({
       price: { type: Number, required: true, min: 0 },
       costPrice: { type: Number }, // Added for Profit Calculation (Snapshot)
       sku: { type: String },     // Added for Invoice
-      category: { type: String } // Added for Invoice
+      category: { type: String }, // Added for Invoice
+      mrp: { type: Number }      // Added for MRP Display
     }
   ],
   discount: {

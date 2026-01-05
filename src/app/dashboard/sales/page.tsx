@@ -19,6 +19,7 @@ interface OrderItem {
   price: number;
   sku?: string;
   category?: string;
+  mrp?: number;
 }
 
 interface Order {
@@ -417,7 +418,11 @@ export default function SalesPage() {
 
     msg += `\uD83D\uDED2 *YOUR ITEMS*\n`;
     order.items.forEach((item, index) => {
-      msg += `${index + 1}. ${item.productName} (x${item.quantity}) - \u20B9${item.price * item.quantity}\n`;
+      const priceStr = (item.mrp && item.mrp > item.price) 
+        ? `~₹${item.mrp}~ \u20B9${item.price}` 
+        : `\u20B9${item.price}`;
+        
+      msg += `${index + 1}. ${item.productName} (x${item.quantity}) - ${priceStr}\n`;
     });
     msg += `\n`;
 

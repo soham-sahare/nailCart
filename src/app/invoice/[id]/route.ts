@@ -44,7 +44,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         });
     } else {
         // DEVELOPMENT: Use standard puppeteer with singleton pattern
-        if (!(global as any).puppeteerBrowser) {
+        if (!(global as any).puppeteerBrowser || !(global as any).puppeteerBrowser.isConnected()) {
             (global as any).puppeteerBrowser = await puppeteer.launch({
                 headless: true,
                 args: ['--no-sandbox', '--disable-setuid-sandbox'],

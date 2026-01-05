@@ -119,6 +119,7 @@ export async function POST(req: Request) {
         return {
             ...item,
             costPrice: product ? product.costPrice : 0, // Snapshot current cost
+            mrp: product ? product.mrp : 0,           // Snapshot MRP
             sku: product ? product.sku : item.sku,
             category: product && product.category ? product.category.name : item.category // Note: Category is ID usually, check if populated? No, simple string here from logic
             // Wait, Product schema has category as ObjectId ref. `product.category` will be ObjectId if lean.

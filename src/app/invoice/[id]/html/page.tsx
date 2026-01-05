@@ -11,6 +11,7 @@ interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
+  mrp?: number;
 }
 
 interface Order {
@@ -192,6 +193,11 @@ export default function InvoicePage() {
                         <tr key={idx}>
                             <td>
                                 <div style={{ fontWeight: 600 }}>{item.productName}</div>
+                                {item.mrp && item.mrp > item.price && (
+                                    <span style={{ fontSize: '0.75rem', textDecoration: 'line-through', color: '#666', marginRight: '5px' }}>
+                                        ₹{item.mrp}
+                                    </span>
+                                )}
                                 {(details.sku || details.category) && (
                                     <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>
                                         {details.sku && <span style={{ marginRight: '8px' }}>#{details.sku}</span>}
@@ -200,7 +206,13 @@ export default function InvoicePage() {
                                 )}
                             </td>
                             <td>{item.quantity}</td>
-                            <td>₹{item.price}</td>
+                            <td>₹{item.price}
+                                {item.mrp && item.mrp > item.price && (
+                                    <div style={{ fontSize: '0.8rem', textDecoration: 'line-through', color: '#888' }}>
+                                        ₹{item.mrp}
+                                    </div>
+                                )}
+                            </td>
                             <td>₹{item.price * item.quantity}</td>
                         </tr>
                     );
