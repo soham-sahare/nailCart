@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { FiPlus, FiCornerUpLeft, FiMinus } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import SearchInput from '@/components/ui/SearchInput';
@@ -54,6 +55,7 @@ interface Product {
 }
 
 export default function SalesPage() {
+  const { data: session } = useSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -663,8 +665,8 @@ export default function SalesPage() {
                     <td>
                        <ActionButtons 
                             onView={() => setViewingOrder(order)}
-                            onEdit={order.status !== 'RETURNED' && order.status !== 'REFUNDED' ? () => handleOpenModal(order) : undefined}
-                            onDelete={() => setDeleteId(order._id)}
+                            onEdit={(session?.user as any)?.role !== 'STAFF' && order.status !== 'RETURNED' && order.status !== 'REFUNDED' ? () => handleOpenModal(order) : undefined}
+                            onDelete={(session?.user as any)?.role !== 'STAFF' ? () => setDeleteId(order._id) : undefined}
                             customActions={
                                 order.status === 'COMPLETED' && (
                                      <button
