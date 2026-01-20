@@ -383,6 +383,7 @@ function LedgerContent() {
         />
       </div>
 
+
       {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
