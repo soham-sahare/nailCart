@@ -28,24 +28,39 @@ export async function GET(req: Request) {
       query.status = status;
     }
 
-    let categories = await Category.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const [categories, total] = await Promise.all([
+      Category.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Category.countDocuments(query)
+    ]);
 
-    const total = await Category.countDocuments(query);
+    // Initialize finalCategories from the fetched categories
+    let finalCategories: any[] = categories;
 
     // 4. Check for Pending Updates/Deletes (ALL PAGES)
     // 4. Check for Pending Updates/Deletes (ALL PAGES)
     if (!status) {
          const { getPendingModifications, augmentWithPendingStatus } = require('@/lib/approvalService');
-         const categoryIds = categories.map((c: any) => c._id);
+         const categoryIds = finalCategories.map((c: any) => c._id);
          const modificationMap = await getPendingModifications('CATEGORY', categoryIds);
-         categories = augmentWithPendingStatus(categories, modificationMap);
+         finalCategories = augmentWithPendingStatus(finalCategories, modificationMap);
     }
 
     // 5. Check for Pending/Rejected CREATES (First Page Only)
-    let finalCategories: any[] = categories;
+    // We reuse 'finalCategories' which was initialized from 'categories'
+    // But since 'categories' is const from Promise.all, we need a mutable variable.
+    
+    // Fix: We can use a new variable or cast.
+    // Let's use a new variable for the final list to avoid 'const' assignment issues if 'categories' was const.
+    // Actually 'categories' comes from Promise.all destructuring which is const by default in my previous edit? 
+    // "const [categories, total] = ..." -> yes categories is const.
+    // So "finalCategories" is needed.
+    
+    // Let's correct line 40 first - remove redeclaration if I'm fixing the file.
+    // But since I am replacing a chunk, I will rewrite the section.
 
     if (page === 1 && !search && !status) {
          // Session validated at start
@@ -57,7 +72,7 @@ export async function GET(req: Request) {
          const mappedPending = mapRequestsToItems(pendingCreates, 'PENDING');
          const mappedRejected = mapRequestsToItems(rejectedCreates, 'REJECTED');
 
-         finalCategories = [...mappedPending, ...mappedRejected, ...categories];
+         finalCategories = [...mappedPending, ...mappedRejected, ...finalCategories];
     }
 
     return NextResponse.json({

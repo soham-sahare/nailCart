@@ -7,6 +7,7 @@ import SearchInput from '@/components/ui/SearchInput';
 import ActionButtons from '@/components/ui/ActionButtons';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import { useSearchParams } from 'next/navigation';
 import { formatDateIST } from '@/lib/dateUtils';
@@ -19,6 +20,8 @@ function LedgerContent() {
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(10);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   
   // Modals
@@ -69,16 +72,19 @@ function LedgerContent() {
 
   useEffect(() => {
     fetchLedger();
-  }, [limit, search]);
+  }, [limit, search, page]);
 
   const fetchLedger = async () => {
     setLoading(true);
     try {
       const query = search ? `&search=${search}` : '';
-      const res = await fetch(`/api/ledger?limit=${limit}${query}`);
+      const res = await fetch(`/api/ledger?limit=${limit}&page=${page}${query}`);
       const data = await res.json();
       if (data.success) {
         setEntries(data.data);
+        if (data.pagination) {
+            setTotalPages(data.pagination.pages);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -230,6 +236,12 @@ function LedgerContent() {
                 <div className={styles.statValue} style={{ color: '#ef4444' }}>₹{totalPayable.toLocaleString()}</div>
             </div>
          </div>
+        
+        <Pagination 
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+        />
       </div>
 
       <div>
@@ -363,6 +375,12 @@ function LedgerContent() {
             </tbody>
             </table>
         </div>
+        
+        <Pagination 
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+        />
       </div>
 
       {/* Add/Edit Modal */}

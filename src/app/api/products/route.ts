@@ -42,26 +42,29 @@ export async function GET(req: Request) {
         productsQuery = productsQuery.select(select.split(',').join(' '));
     }
 
-    let products = await productsQuery
-      .populate('category', 'name')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(); // Optimize read
-
-    const total = await Product.countDocuments(query);
+    const [products, total] = await Promise.all([
+      productsQuery
+        .populate('category', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(), 
+      Product.countDocuments(query)
+    ]);
+    
+    // We need a mutable variable for approval flow augmentations
+    let finalProducts: any[] = products;
     
     // 4. Check for Pending Updates/Deletes on the fetched products (ALL PAGES)
     // 4. Check for Pending Updates/Deletes on the fetched products (ALL PAGES)
     if (!status) {
          const { getPendingModifications, augmentWithPendingStatus } = require('@/lib/approvalService');
-         const productIds = products.map((p: any) => p._id);
+         const productIds = finalProducts.map((p: any) => p._id);
          const modificationMap = await getPendingModifications('PRODUCT', productIds);
-         products = augmentWithPendingStatus(products, modificationMap);
+         finalProducts = augmentWithPendingStatus(finalProducts, modificationMap);
     }
 
     // 5. Check for Pending/Rejected CREATES (First Page Only)
-    let finalProducts: any[] = products;
     
     if (page === 1 && !search && !status) {
          // Session validated at start of function
@@ -73,7 +76,7 @@ export async function GET(req: Request) {
          const mappedPending = mapRequestsToItems(pendingCreates, 'PENDING');
          const mappedRejected = mapRequestsToItems(rejectedCreates, 'REJECTED');
          
-         finalProducts = [...mappedPending, ...mappedRejected, ...products];
+         finalProducts = [...mappedPending, ...mappedRejected, ...finalProducts];
     }
 
     return NextResponse.json({

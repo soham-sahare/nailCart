@@ -62,13 +62,14 @@ export async function GET(req: Request) {
         }
     }
 
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(); // Optimize read performance
-
-    const total = await Order.countDocuments(query);
+    const [orders, total] = await Promise.all([
+      Order.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Order.countDocuments(query)
+    ]);
 
     return NextResponse.json({
       success: true,

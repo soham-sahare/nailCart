@@ -93,7 +93,7 @@ export default function ExpensesPage() {
   const fetchExpenses = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/expenses');
+      const res = await fetch(`/api/expenses?page=${page}&limit=${limit}&search=${search}`);
       const data = await res.json();
       if (data.success) {
         setExpenses(data.data);
