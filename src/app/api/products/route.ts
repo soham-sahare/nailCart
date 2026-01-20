@@ -27,12 +27,7 @@ export async function GET(req: Request) {
     const skip = (page - 1) * limit;
 
     const query: any = search
-      ? { 
-          $or: [
-            { name: { $regex: search, $options: 'i' } },
-            { sku: { $regex: search, $options: 'i' } }
-          ]
-        }
+      ? { $text: { $search: search } }
       : {};
 
     if (status) {
