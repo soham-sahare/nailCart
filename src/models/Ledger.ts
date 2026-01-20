@@ -8,7 +8,7 @@ const LedgerSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: [true, 'Please provide a description'],
+    // required: [true, 'Please provide a description'], // Made optional
     trim: true,
   },
   type: {

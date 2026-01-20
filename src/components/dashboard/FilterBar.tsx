@@ -36,7 +36,7 @@ export default function FilterBar({ range, setRange, customRange, setCustomRange
     }, []);
 
     return (
-        <div className="glass" style={{ padding: '0.75rem 1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', justifyContent: 'flex-end', borderRadius: '1rem' }}>
+        <div className="glass" style={{ position: 'relative', zIndex: 20, padding: '0.75rem 1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', justifyContent: 'flex-end', borderRadius: '1rem' }}>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <span style={{ color: '#888', fontSize: '0.9rem', fontWeight: 500 }}>Show:</span>
@@ -73,8 +73,8 @@ export default function FilterBar({ range, setRange, customRange, setCustomRange
                             padding: '0.5rem',
                             borderRadius: '1rem',
                             border: '1px solid var(--border)',
-                            background: 'var(--card-bg)',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                            background: '#000', // Solid background for visibility
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
                         }}>
                              {filters.map(f => (
                                 <button
