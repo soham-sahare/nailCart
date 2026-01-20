@@ -3,7 +3,7 @@ import { Montserrat } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import NetBackground from '@/components/NetBackground';
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from "@vercel/analytics/next";
 
 const montserrat = Montserrat({ subsets: ['latin'] });
 
