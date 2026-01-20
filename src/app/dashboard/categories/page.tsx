@@ -119,7 +119,7 @@ export default function CategoriesPage() {
 
       showToast('success', 'Success', data.message || (editingCategory ? `Category '${formData.name}' updated successfully` : `Category '${formData.name}' created successfully`));
       setIsModalOpen(false);
-      fetchCategories();
+      loadCategories();
     } catch (err: any) {
       setError(err.message);
     } finally {

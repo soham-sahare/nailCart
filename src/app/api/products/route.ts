@@ -127,6 +127,6 @@ export async function POST(req: Request) {
     if (error.code === 11000) {
       return NextResponse.json({ message: 'Product SKU already exists' }, { status: 400 });
     }
-    return NextResponse.json({ message: 'Error creating product' }, { status: 500 });
+    return NextResponse.json({ message: 'Error creating product', error: error.message }, { status: 500 });
   }
 }

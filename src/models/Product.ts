@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const ProductSchema = new mongoose.Schema({
   sku: {
     type: String,
-    required: [true, 'Please provide a SKU'],
+    // required: [true, 'Please provide a SKU'], // Made optional
     // unique: true, // Removed in favor of compound index (sku + name)
   },
   name: {
@@ -46,5 +46,12 @@ ProductSchema.index({ name: 1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ status: 1 });
 ProductSchema.index({ sku: 1, name: 1 }, { unique: true }); // Compound Unique Key
+
+// Prevent Mongoose Recompilation Error
+if (process.env.NODE_ENV === 'development') {
+    if (mongoose.models.Product) {
+      delete mongoose.models.Product;
+    }
+}
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

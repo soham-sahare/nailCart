@@ -159,6 +159,7 @@ export default function ProductsPage() {
         body: JSON.stringify({
              ...formData,
              category: formData.categoryId, // Map ID to expected schema field
+             sku: formData.sku === '' ? undefined : formData.sku,
              mrp: formData.mrp === '' ? undefined : formData.mrp // Send undefined if empty to skip validation/casting issues
         })
       });
@@ -343,8 +344,8 @@ export default function ProductsPage() {
               <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="input-field" placeholder="e.g. Gel Polish Red" />
             </div>
             <div className={styles.formGroup}>
-              <label>SKU</label>
-              <input type="text" required value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="input-field" placeholder="e.g. GEL-RED-01" />
+              <label>SKU (Optional)</label>
+              <input type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="input-field" placeholder="e.g. GEL-RED-01" />
             </div>
           </div>
 
