@@ -42,7 +42,8 @@ const ProductSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Methods/Indexes
-ProductSchema.index({ name: 1 });
+// User Request Item 20: Text Index for efficient search
+ProductSchema.index({ name: 'text', sku: 'text' }); 
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ status: 1 });
 ProductSchema.index({ sku: 1, name: 1 }, { unique: true }); // Compound Unique Key

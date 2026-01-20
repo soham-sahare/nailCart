@@ -91,6 +91,20 @@ OrderSchema.index({ customerName: 1 });
 OrderSchema.index({ mobileNumber: 1 });
 OrderSchema.index({ type: 1 });
 
+// User Request Item 13 & 21: Compound & Partial Index for Analytics
+// This index specifically targets the main dashboard filter: Active Sales
+OrderSchema.index(
+    { createdAt: -1 }, 
+    { 
+        partialFilterExpression: { 
+            status: { $ne: 'CANCELLED' }, 
+            type: 'SALE' 
+        },
+        name: 'idx_analytics_active_sales'
+    }
+);
+OrderSchema.index({ status: 1, type: 1, createdAt: -1 }); // Fallback compound index
+
 // Prevent Mongoose Recompilation Error in Development
 if (process.env.NODE_ENV === 'development') {
   if (mongoose.models.Order) {

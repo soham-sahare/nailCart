@@ -10,6 +10,7 @@ import Modal from '@/components/ui/Modal';
 import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './expenses.module.css';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface Expense {
     _id: string;
@@ -31,6 +32,7 @@ export default function ExpensesPage() {
   
   // Pagination & Filter State
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
   
@@ -69,8 +71,8 @@ export default function ExpensesPage() {
     
     // 1. Filter by Search
     let filtered = expenses;
-    if (search) {
-        const lowerSearch = search.toLowerCase();
+    if (debouncedSearch) {
+        const lowerSearch = debouncedSearch.toLowerCase();
         filtered = filtered.filter((e) => 
           e.title.toLowerCase().includes(lowerSearch) || 
           e.category.toLowerCase().includes(lowerSearch) ||
@@ -88,7 +90,7 @@ export default function ExpensesPage() {
     }
 
     setFilteredExpenses(filtered);
-  }, [search, expenses, selectedMonth]);
+  }, [debouncedSearch, expenses, selectedMonth]);
 
   const fetchExpenses = async () => {
     setLoading(true);

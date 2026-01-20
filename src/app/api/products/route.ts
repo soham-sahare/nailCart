@@ -5,6 +5,10 @@ import Product from '@/models/Product';
 import '@/models/Category'; 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { 
+    getPendingModifications, augmentWithPendingStatus, getGhostItems, mapRequestsToItems 
+} from '@/lib/approvalService';
+import ApprovalRequest from '@/models/ApprovalRequest';
 
 export async function GET(req: Request) {
   try {
@@ -42,37 +46,33 @@ export async function GET(req: Request) {
         productsQuery = productsQuery.select(select.split(',').join(' '));
     }
 
-    const [products, total] = await Promise.all([
+    const [products, total, ghostItems] = await Promise.all([
       productsQuery
         .populate('category', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(), 
-      Product.countDocuments(query)
+      Product.countDocuments(query),
+      // Fetch ghost items in parallel if on page 1
+      page === 1 && !search && !status ? (async () => {
+         return getGhostItems('PRODUCT', role);
+      })() : Promise.resolve(null)
     ]);
     
     // We need a mutable variable for approval flow augmentations
     let finalProducts: any[] = products;
     
     // 4. Check for Pending Updates/Deletes on the fetched products (ALL PAGES)
-    // 4. Check for Pending Updates/Deletes on the fetched products (ALL PAGES)
     if (!status) {
-         const { getPendingModifications, augmentWithPendingStatus } = require('@/lib/approvalService');
          const productIds = finalProducts.map((p: any) => p._id);
          const modificationMap = await getPendingModifications('PRODUCT', productIds);
          finalProducts = augmentWithPendingStatus(finalProducts, modificationMap);
     }
 
-    // 5. Check for Pending/Rejected CREATES (First Page Only)
-    
-    if (page === 1 && !search && !status) {
-         // Session validated at start of function
-         const role = (session?.user as any)?.role || 'STAFF';
-         const { getGhostItems, mapRequestsToItems } = require('@/lib/approvalService');
-         
-         const { pendingCreates, rejectedCreates } = await getGhostItems('PRODUCT', role);
-
+    // 5. Merge Ghost Items (Pending/Rejected Creates)
+    if (ghostItems) {
+         const { pendingCreates, rejectedCreates } = ghostItems;
          const mappedPending = mapRequestsToItems(pendingCreates, 'PENDING');
          const mappedRejected = mapRequestsToItems(rejectedCreates, 'REJECTED');
          
@@ -109,9 +109,6 @@ export async function POST(req: Request) {
 
     if (role === 'STAFF') {
         // Create Approval Request
-        await import('@/models/ApprovalRequest'); // Ensure model is loaded
-        const ApprovalRequest = require('@/models/ApprovalRequest').default;
-
         await ApprovalRequest.create({
             type: 'CREATE',
             model: 'PRODUCT',

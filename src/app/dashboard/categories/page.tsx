@@ -11,6 +11,7 @@ import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './categories.module.css';
 import { fetchCategories } from '@/lib/fetchers';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface Category {
   _id: string;
@@ -35,6 +36,7 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
@@ -51,11 +53,11 @@ export default function CategoriesPage() {
 
   useEffect(() => {
     loadCategories();
-  }, [search, limit, page]);
+  }, [debouncedSearch, limit, page]);
 
   const loadCategories = async () => {
     setLoading(true);
-    const data = await fetchCategories(search, limit, page);
+    const data = await fetchCategories(debouncedSearch, limit, page);
     if (data && data.data) {
         setCategories(data.data);
         setTotalPages(data.pagination ? data.pagination.pages : 1);

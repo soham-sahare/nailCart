@@ -9,23 +9,26 @@ import Modal from '@/components/ui/Modal';
 import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './contacts.module.css';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface Contact {
     _id: string;
     name: string;
+    type: 'CUSTOMER' | 'VENDOR';
     phoneNumber: string;
     email?: string;
+    address?: string;
+    gstin?: string;
 }
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  
-  // Pagination
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
@@ -41,12 +44,12 @@ export default function ContactsPage() {
 
   useEffect(() => {
     fetchContacts();
-  }, [search]); // Re-fetch on search to filter from API side if supported, or we filter locally
+  }, [debouncedSearch]); // Re-fetch on search to filter from API side if supported, or we filter locally
 
   const fetchContacts = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/contacts?search=${search}`);
+      const res = await fetch(`/api/contacts?search=${debouncedSearch}`);
       const data = await res.json();
       if (data.success) {
         setContacts(data.data);

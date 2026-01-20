@@ -11,6 +11,7 @@ import Pagination from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import styles from './products.module.css';
 import { fetchCategories } from '@/lib/fetchers';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface Product {
   _id: string;
@@ -35,6 +36,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -62,12 +64,12 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts();
     loadCategories();
-  }, [search, limit, page]);
+  }, [debouncedSearch, limit, page]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/products?search=${search}&limit=${limit}&page=${page}`);
+      const res = await fetch(`/api/products?search=${debouncedSearch}&limit=${limit}&page=${page}`);
       const data = await res.json();
       if (data.success) {
           setProducts(data.data);

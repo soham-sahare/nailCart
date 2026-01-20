@@ -61,7 +61,7 @@ export async function getGhostItems(model: 'PRODUCT' | 'CATEGORY', role: string)
         type: 'CREATE',
         model,
         status: 'PENDING'
-    }).sort({ requestDate: -1 }).lean();
+    }).sort({ createdAt: -1 }).lean();
 
     // 2. Fetch Rejected Creates (Visible ONLY to Staff)
     let rejectedCreates: any[] = [];
@@ -70,7 +70,7 @@ export async function getGhostItems(model: 'PRODUCT' | 'CATEGORY', role: string)
             type: 'CREATE',
             model,
             status: 'REJECTED'
-        }).sort({ requestDate: -1 }).lean();
+        }).sort({ createdAt: -1 }).lean();
     }
 
     return { pendingCreates, rejectedCreates };

@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast';
 import styles from './sales.module.css';
 import { formatDateIST } from '@/lib/dateUtils';
 import { fetchProducts } from '@/lib/fetchers';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface OrderItem {
   productName: string;
@@ -60,6 +61,7 @@ export default function SalesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
@@ -189,7 +191,7 @@ export default function SalesPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const query = `page=${page}&limit=${limit}&search=${search}&month=${selectedMonth}`;
+      const query = `page=${page}&limit=${limit}&search=${debouncedSearch}&month=${selectedMonth}`;
       const res = await fetch(`/api/sales?${query}`);
       const data = await res.json();
       setOrders(data.data);
@@ -213,7 +215,7 @@ export default function SalesPage() {
   useEffect(() => {
     fetchOrders();
     loadProducts();
-  }, [search, page, limit, selectedMonth]);
+  }, [debouncedSearch, page, limit, selectedMonth]);
 
   // Recalculate total when items change
   useEffect(() => {

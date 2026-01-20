@@ -97,7 +97,9 @@ export async function POST(req: Request) {
 
     // Batch fetch costs for all items to optimize performance
     const productNames = body.items.map((i: any) => i.productName);
-    const products = await Product.find({ name: { $in: productNames } }).lean();
+    const products = await Product.find({ name: { $in: productNames } })
+        .populate('category', 'name')
+        .lean();
     
     // Create Map for O(1) lookup
     const productMap = new Map();
@@ -122,15 +124,10 @@ export async function POST(req: Request) {
             costPrice: product ? product.costPrice : 0, // Snapshot current cost
             mrp: product ? product.mrp : 0,           // Snapshot MRP
             sku: product ? product.sku : item.sku,
-            category: product && product.category ? product.category.name : item.category // Note: Category is ID usually, check if populated? No, simple string here from logic
-            // Wait, Product schema has category as ObjectId ref. `product.category` will be ObjectId if lean.
-            // If we want name, we need populate or assumptions. 
-            // In original code: product.category.name. This implies product was a mongoose doc with populate? 
-            // Original code: await Product.findOne(). No populate. So product.category is ObjectId.
-            // But code accessed `product.category.name`. This would crash if it wasn't populated properly or if mixed types.
-            // Let's safe guard. In POST, usually category comes from FE or we need to fetch it.
-            // For simplicity/performance: snapshot what we have, or just keep ObjectId?
-            // "item.category" from FE usually fits.
+            // Item 8: Denormalize Category Name
+            category: product && product.category && (product.category as any).name 
+                ? (product.category as any).name 
+                : item.category 
         };
     });
 

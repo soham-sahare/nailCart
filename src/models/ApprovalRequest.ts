@@ -40,6 +40,8 @@ ApprovalRequestSchema.index({ model: 1 });
 ApprovalRequestSchema.index({ type: 1 });
 // Compound index for fetching pending requests sorted by date
 ApprovalRequestSchema.index({ status: 1, createdAt: 1 });
+// User Request Item 29: Compound Index for efficient service checks
+ApprovalRequestSchema.index({ model: 1, status: 1, targetId: 1, type: 1 });
 
 // Prevent Mongoose Recompilation
 if (process.env.NODE_ENV === 'development') {

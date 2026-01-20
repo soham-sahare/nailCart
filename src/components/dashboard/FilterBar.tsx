@@ -1,17 +1,24 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { FiCalendar, FiFilter, FiChevronDown } from 'react-icons/fi';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-interface FilterBarProps {
-    range: string;
-    setRange: (range: string) => void;
-    customRange: { from: string; to: string };
-    setCustomRange: (range: { from: string; to: string }) => void;
-    onApply: () => void;
-}
+export default function FilterBar() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    // Get current state from URL
+    const range = searchParams.get('range') || 'this_month';
+    const fromParam = searchParams.get('from') || '';
+    const toParam = searchParams.get('to') || '';
 
-export default function FilterBar({ range, setRange, customRange, setCustomRange, onApply }: FilterBarProps) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    
+    // Local state for custom range input
+    const [customFrom, setCustomFrom] = useState(fromParam);
+    const [customTo, setCustomTo] = useState(toParam);
 
     const filters = [
         { id: '1d', label: 'Today' },
@@ -34,6 +41,29 @@ export default function FilterBar({ range, setRange, customRange, setCustomRange
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // Update URL when range changes
+    const updateRange = (newRange: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('range', newRange);
+        
+        // Clear custom dates if switching away from custom
+        if (newRange !== 'custom') {
+            params.delete('from');
+            params.delete('to');
+        }
+        
+        router.push(`?${params.toString()}`);
+        setIsOpen(false);
+    };
+
+    const applyCustomRange = () => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('range', 'custom');
+        if (customFrom) params.set('from', customFrom);
+        if (customTo) params.set('to', customTo);
+        router.push(`?${params.toString()}`);
+    };
 
     return (
         <div className="glass" style={{ position: 'relative', zIndex: 20, padding: '0.75rem 1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', justifyContent: 'flex-end', borderRadius: '1rem' }}>
@@ -79,10 +109,7 @@ export default function FilterBar({ range, setRange, customRange, setCustomRange
                              {filters.map(f => (
                                 <button
                                     key={f.id}
-                                    onClick={() => {
-                                        setRange(f.id);
-                                        setIsOpen(false);
-                                    }}
+                                    onClick={() => updateRange(f.id)}
                                     style={{
                                         display: 'block',
                                         width: '100%',
@@ -111,8 +138,8 @@ export default function FilterBar({ range, setRange, customRange, setCustomRange
                         <span style={{fontSize: '0.8rem', opacity: 0.6}}>From</span>
                         <input 
                             type="date" 
-                            value={customRange.from}
-                            onChange={(e) => setCustomRange({...customRange, from: e.target.value})}
+                            value={customFrom}
+                            onChange={(e) => setCustomFrom(e.target.value)}
                             style={{ background: 'transparent', border: 'none', fontSize: '0.9rem', outline: 'none', color: 'var(--foreground)' }}
                         />
                     </div>
@@ -121,13 +148,13 @@ export default function FilterBar({ range, setRange, customRange, setCustomRange
                          <span style={{fontSize: '0.8rem', opacity: 0.6}}>To</span>
                         <input 
                             type="date" 
-                            value={customRange.to}
-                            onChange={(e) => setCustomRange({...customRange, to: e.target.value})}
+                            value={customTo}
+                            onChange={(e) => setCustomTo(e.target.value)}
                             style={{ background: 'transparent', border: 'none', fontSize: '0.9rem', outline: 'none', color: 'var(--foreground)' }}
                         />
                     </div>
                     <button 
-                        onClick={onApply}
+                        onClick={applyCustomRange}
                         className="btn-primary"
                         style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', borderRadius: '0.5rem' }}
                     >

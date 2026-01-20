@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useSearchParams } from 'next/navigation';
 import { formatDateIST } from '@/lib/dateUtils';
 import styles from './ledger.module.css';
+import { useDebounce } from '@/hooks/useDebounce';
 
 function LedgerContent() {
   const searchParams = useSearchParams();
@@ -23,6 +24,7 @@ function LedgerContent() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,12 +74,12 @@ function LedgerContent() {
 
   useEffect(() => {
     fetchLedger();
-  }, [limit, search, page]);
+  }, [limit, debouncedSearch, page]);
 
   const fetchLedger = async () => {
     setLoading(true);
     try {
-      const query = search ? `&search=${search}` : '';
+      const query = debouncedSearch ? `&search=${debouncedSearch}` : '';
       const res = await fetch(`/api/ledger?limit=${limit}&page=${page}${query}`);
       const data = await res.json();
       if (data.success) {
