@@ -63,7 +63,7 @@ export const getGlobalMetrics = async (range: string, from?: string | null, to?:
     const dateFilter = { $gte: startDate, $lte: endDate };
     const saleMatch = { status: { $ne: 'CANCELLED' }, type: 'SALE', createdAt: dateFilter };
     
-    const [stats, expenseStats] = await Promise.all([
+    const [stats, expenseStats, profitAgg] = await Promise.all([
         Order.aggregate([
             { $match: saleMatch }, 
             { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' }, totalOrders: { $count: {} } } }
@@ -71,35 +71,32 @@ export const getGlobalMetrics = async (range: string, from?: string | null, to?:
         Expense.aggregate([
             { $match: { date: dateFilter } },
             { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]),
+        // Profit Calculation
+        Order.aggregate([
+            { $match: saleMatch },
+            { $project: {
+                items: 1, 
+                totalAmount: 1
+            }},
+            { $project: {
+                revenue: "$totalAmount",
+                cost: { 
+                     $sum: { 
+                        $map: { 
+                            input: "$items", 
+                            as: "item", 
+                            in: { $multiply: [ { $ifNull: ["$$item.costPrice", 0] }, "$$item.quantity" ] } 
+                        } 
+                    } 
+                }
+            }},
+            { $group: { _id: null, totalProfit: { $sum: { $subtract: ["$revenue", "$cost"] } } } }
         ])
     ]);
 
     const metrics = stats[0] || { totalRevenue: 0, totalOrders: 0 };
     const totalExpenses = expenseStats[0]?.total || 0;
-    
-    // Need Sales Trend for Profit Calculation or recalculate roughly?
-    // Accurate Profit requires iterating items. Let's do a tailored aggregation for profit sum ONLY if not fetching full trend.
-    // For performance, let's reuse the SalesTrend Aggregation logic but simpler
-    const profitAgg = await Order.aggregate([
-        { $match: saleMatch },
-        { $project: {
-            items: 1, 
-            totalAmount: 1
-        }},
-        { $project: {
-            revenue: "$totalAmount",
-            cost: { 
-                 $sum: { 
-                    $map: { 
-                        input: "$items", 
-                        as: "item", 
-                        in: { $multiply: [ { $ifNull: ["$$item.costPrice", 0] }, "$$item.quantity" ] } 
-                    } 
-                } 
-            }
-        }},
-        { $group: { _id: null, totalProfit: { $sum: { $subtract: ["$revenue", "$cost"] } } } }
-    ]);
     const totalGrossProfit = profitAgg[0]?.totalProfit || 0;
 
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());

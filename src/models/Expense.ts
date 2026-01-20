@@ -45,6 +45,16 @@ const ExpenseSchema = new mongoose.Schema({
 // Indexes for Reporting
 ExpenseSchema.index({ date: -1 });
 ExpenseSchema.index({ category: 1 });
+// Partial Index for recent expenses (optimizes dashboard 'this month' queries)
+ExpenseSchema.index(
+    { date: -1 }, 
+    { 
+        partialFilterExpression: { 
+            date: { $gte: new Date('2025-01-01') } 
+        },
+        name: 'idx_expenses_recent'
+    }
+);
 
 // Prevent Mongoose Recompilation Error
 if (process.env.NODE_ENV === 'development') {
