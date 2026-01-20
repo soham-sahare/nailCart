@@ -698,7 +698,7 @@ export default function SalesPage() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingOrder ? 'Edit Sale' : 'New Sale'}
-        width="800px"
+        width="1100px"
       >
         <form onSubmit={handleSubmit}>
               <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
@@ -734,10 +734,13 @@ export default function SalesPage() {
                     {/* Master Search Dropdown */}
                     <div style={{ marginBottom: '1rem' }}>
                          <CustomDropdown
-                            options={products.map(p => ({ value: p.name, label: p.name }))}
+                            options={products.map(p => ({ 
+                                value: p.name, 
+                                label: `${p.name} ${p.sku ? `(SKU: ${p.sku})` : ''} ${p.category?.name ? `[${p.category.name}]` : ''}` 
+                            }))}
                             value={activeProduct}
                             onChange={(val) => handleAddProduct(val as string)}
-                            placeholder="🔍 Search & Add Product..."
+                            placeholder="🔍 Search Product (Name, SKU, Category)..."
                             searchable={true}
                         />
                     </div>
