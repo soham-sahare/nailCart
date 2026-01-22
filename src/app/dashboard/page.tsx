@@ -23,14 +23,13 @@ const SectionSkeleton = ({ height = '400px' }: { height?: string }) => (
   <div className="glass animate-pulse" style={{ height, borderRadius: '1.5rem', width: '100%' }}></div>
 );
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | undefined };
+export default async function DashboardPage(props: {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const session = await getServerSession(authOptions);
   
   // Parse Search Params
+  const searchParams = await props.searchParams;
   const range = searchParams.range || 'this_month';
   const fromParam = searchParams.from || null;
   const toParam = searchParams.to || null;
