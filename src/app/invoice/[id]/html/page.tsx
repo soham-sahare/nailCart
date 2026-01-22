@@ -191,6 +191,7 @@ export default function InvoicePage() {
                 <tr>
                     <th>Item</th>
                     <th>Qty</th>
+                    <th>MRP</th>
                     <th>Price</th>
                     <th>Amount</th>
                 </tr>
@@ -202,27 +203,16 @@ export default function InvoicePage() {
                         <tr key={idx}>
                             <td>
                                 <div style={{ fontWeight: 600 }}>{item.productName}</div>
-                                {/* {item.mrp && item.mrp > item.price && (
-                                    <span style={{ fontSize: '0.75rem', textDecoration: 'line-through', color: '#666', marginRight: '5px' }}>
-                                        ₹{item.mrp}
-                                    </span>
-                                )}
-                                {(details.sku || details.category) && (
-                                    <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>
-                                        {details.sku && <span style={{ marginRight: '8px' }}>#{details.sku}</span>}
-                                        {details.category && <span>#{details.category}</span>}
-                                    </div>
-                                )} */}
                             </td>
                             <td>{item.quantity}</td>
-                            <td>₹{item.price}
-                                {item.mrp && item.mrp > item.price && (
-                                    <div style={{ fontSize: '0.8rem', textDecoration: 'line-through', color: '#888' }}>
-                                        ₹{item.mrp}
-                                    </div>
-                                )}
+                            <td>{item.mrp ? `₹${item.mrp}` : '-'}</td>
+                            <td>₹{item.price}</td>
+                            <td>
+                                <div style={{ fontWeight: 600 }}>₹{item.price * item.quantity}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>
+                                    (₹{item.price} x {item.quantity})
+                                </div>
                             </td>
-                            <td>₹{item.price * item.quantity}</td>
                         </tr>
                     );
                 })}
