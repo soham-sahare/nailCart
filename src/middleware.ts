@@ -13,7 +13,10 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        console.log("Middleware Check:", { path: req.nextUrl.pathname, hasToken: !!token });
+        return !!token;
+      },
     },
     pages: {
       signIn: "/admin/login",
