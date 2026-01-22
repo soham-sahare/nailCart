@@ -35,7 +35,15 @@ function LoginForm() {
         setError('Invalid credentials');
         setLoading(false);
       } else {
-        router.push('/dashboard');
+        // Fetch session to check role before redirecting
+        const sessionRes = await fetch('/api/auth/session');
+        const session = await sessionRes.json();
+        
+        if (session?.user?.role === 'STAFF') {
+           router.push('/dashboard/sales');
+        } else {
+           router.push('/dashboard');
+        }
         router.refresh();
       }
     } catch (err) {
