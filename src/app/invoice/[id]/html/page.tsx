@@ -202,7 +202,14 @@ export default function InvoicePage() {
                     return (
                         <tr key={idx}>
                             <td>
-                                <div style={{ fontWeight: 600 }}>{item.productName}</div>
+                                <div style={{ fontWeight: 600 }}>
+                                    {item.productName}
+                                    {details.sku && (
+                                        <span style={{ fontWeight: 400, color: '#444' }}>
+                                            {' - '}{details.sku.includes('-') ? details.sku.split('-').pop() : details.sku}
+                                        </span>
+                                    )}
+                                </div>
                             </td>
                             <td>{item.quantity}</td>
                             <td>{item.mrp ? `₹${item.mrp}` : '-'}</td>

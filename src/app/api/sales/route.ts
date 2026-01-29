@@ -95,30 +95,46 @@ export async function POST(req: Request) {
     // Format: INV-YYYY-MM-XXXX
     const uniqueId = await generateOrderId('INV');
 
-    // Batch fetch costs for all items to optimize performance
-    const productNames = body.items.map((i: any) => i.productName);
-    const products = await Product.find({ name: { $in: productNames } })
+    // Batch fetch products using Name + SKU combination
+    // We construct an OR query to match exact Name/SKU pairs
+    const queryConditions = body.items.map((i: any) => ({
+        name: i.productName,
+        ...(i.sku ? { sku: i.sku } : {}) 
+    }));
+    
+    const products = await Product.find({ $or: queryConditions })
         .populate('category', 'name')
         .lean();
     
-    // Create Map for O(1) lookup
+    // Create Map for O(1) lookup using Composite Key: "Name|SKU"
+    // If SKU is missing in DB (legacy), we use "Name|undefined" or just "Name|"
     const productMap = new Map();
-    products.forEach((p: any) => productMap.set(p.name, p));
+    products.forEach((p: any) => {
+        const key = `${p.name}|${p.sku || ''}`;
+        productMap.set(key, p);
+    });
 
     // VALIDATION: Check for sufficient stock
     for (const item of body.items) {
-        const product: any = productMap.get(item.productName);
+        const key = `${item.productName}|${item.sku || ''}`;
+        
+        // Fallback: If exact match fails (maybe legacy item sent without SKU?), try name match?
+        // But for new items, we expect strict match.
+        let product: any = productMap.get(key);
+
         if (product && product.quantity < item.quantity) {
              return NextResponse.json({ 
                  success: false, 
-                 message: `Insufficient stock for "${item.productName}". Available: ${product.quantity}, Requested: ${item.quantity}` 
+                 message: `Insufficient stock for "${item.productName}" (SKU: ${item.sku || '-'}). Available: ${product.quantity}, Requested: ${item.quantity}` 
              }, { status: 400 });
         }
     }
 
     // Enrich items with costPrice
     const enrichedItems = body.items.map((item: any) => {
-        const product: any = productMap.get(item.productName);
+        const key = `${item.productName}|${item.sku || ''}`;
+        const product: any = productMap.get(key);
+        
         return {
             ...item,
             costPrice: product ? product.costPrice : 0, // Snapshot current cost
@@ -140,10 +156,13 @@ export async function POST(req: Request) {
 
     // INVENTORY UPDATE: Decrement stock
     await Promise.all(body.items.map((item: any) => {
-        // Only update if we found the product (prevents errors on ad-hoc items)
-        if (productMap.has(item.productName)) {
+        const key = `${item.productName}|${item.sku || ''}`;
+        if (productMap.has(key)) {
+             const filter: any = { name: item.productName };
+             if(item.sku) filter.sku = item.sku;
+             
              return Product.updateOne(
-                { name: item.productName },
+                filter,
                 { $inc: { quantity: -item.quantity } }
              );
         }
