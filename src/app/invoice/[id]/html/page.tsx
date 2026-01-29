@@ -203,13 +203,24 @@ export default function InvoicePage() {
                         <tr key={idx}>
                             <td>
                                 <div style={{ fontWeight: 600 }}>
-                                    {item.productName}
-                                    {details.sku && (
-                                        <span style={{ fontWeight: 400, color: '#444' }}>
-                                            {' - '}{details.sku.includes('-') ? details.sku.split('-').pop() : details.sku}
-                                        </span>
-                                    )}
+                                    {(() => {
+                                        const skuParts = details.sku ? details.sku.split('-') : [];
+                                        const lastPart = skuParts.length > 0 ? skuParts[skuParts.length - 1] : '';
+                                        const isNumeric = !isNaN(Number(lastPart)) && lastPart.trim() !== '';
+                                        
+                                        return (
+                                            <>
+                                                {item.productName}
+                                                {isNumeric && <span style={{ fontWeight: 400, color: '#444' }}> - {lastPart}</span>}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
+                                {details.sku && (
+                                    <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '2px' }}>
+                                        #{details.sku}
+                                    </div>
+                                )}
                             </td>
                             <td>{item.quantity}</td>
                             <td>{item.mrp ? `₹${item.mrp}` : '-'}</td>
