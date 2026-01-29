@@ -26,8 +26,14 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
+      const searchRegex = new RegExp(search, 'i');
     const query: any = search
-      ? { $text: { $search: search } }
+      ? { 
+          $or: [
+            { name: { $regex: searchRegex } },
+            { sku: { $regex: searchRegex } }
+          ]
+        }
       : {};
 
     if (status) {

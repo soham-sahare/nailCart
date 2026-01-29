@@ -131,14 +131,19 @@ export default function SalesPage() {
   const [sendReturnWhatsapp, setSendReturnWhatsapp] = useState(false);
 
   // Add Product Handler (Single Search)
-  const handleAddProduct = (productName: string) => {
-      if (!productName) return;
+  const handleAddProduct = (productId: string) => {
+      if (!productId) return;
 
-      const product = products.find(p => p.name === productName);
+      const product = products.find(p => p._id === productId);
       if (!product) return;
 
-      // Check if product already exists
-      const existingItemIndex = formData.items.findIndex(item => item.productName === productName);
+      const productName = product.name;
+
+      // Check if product already exists (Match Name AND SKU)
+      const existingItemIndex = formData.items.findIndex(item => 
+          item.productName === productName && 
+          (item.sku || '') === (product.sku || '')
+      );
 
       if (existingItemIndex !== -1) {
           // Merge Logic: Increment Quantity
@@ -208,7 +213,9 @@ export default function SalesPage() {
     // Lite payload for faster loading
     const data = await fetchProducts('', 1000, 1, 'ACTIVE', 'name,sku,sellingPrice,quantity,category');
     if (data && data.data) {
-        setProducts(data.data);
+        // Deduplicate products by _id to prevent dropdown duplicates
+        const uniqueProducts = Array.from(new Map(data.data.map((p: any) => [p._id, p])).values());
+        setProducts(uniqueProducts as Product[]);
     }
   };
 
@@ -739,12 +746,12 @@ export default function SalesPage() {
                     <div style={{ marginBottom: '1rem' }}>
                          <CustomDropdown
                             options={products.map(p => ({ 
-                                value: p.name, 
-                                label: `${p.name} ${p.sku ? `(SKU: ${p.sku})` : ''} ${p.category?.name ? `[${p.category.name}]` : ''}` 
+                                value: p._id, 
+                                label: `${p.name} ${p.sku ? `(SKU: ${p.sku})` : ''}` 
                             }))}
                             value={activeProduct}
-                            onChange={(val) => handleAddProduct(val as string)}
-                            placeholder="🔍 Search Product (Name, SKU, Category)..."
+                            onChange={(val) => handleAddProduct(val)}
+                            placeholder="🔍 Search Product (Name, SKU)..."
                             searchable={true}
                         />
                     </div>
