@@ -209,9 +209,7 @@ export default function InvoicePage() {
                             <td>₹{item.price}</td>
                             <td>
                                 <div style={{ fontWeight: 600 }}>₹{item.price * item.quantity}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>
-                                    (₹{item.price} x {item.quantity})
-                                </div>
+
                             </td>
                         </tr>
                     );
