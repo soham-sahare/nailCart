@@ -16,9 +16,10 @@ interface CustomDropdownProps {
   placeholder?: string;
   searchable?: boolean;
   allowCustomValue?: boolean;
+  onSearch?: (query: string) => void;
 }
 
-export default function CustomDropdown({ options, value, onChange, placeholder = 'Select...', searchable = false, allowCustomValue = false }: CustomDropdownProps) {
+export default function CustomDropdown({ options, value, onChange, placeholder = 'Select...', searchable = false, allowCustomValue = false, onSearch }: CustomDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -34,6 +35,13 @@ export default function CustomDropdown({ options, value, onChange, placeholder =
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Trigger onSearch when query changes
+  useEffect(() => {
+    if (onSearch) {
+        onSearch(searchQuery);
+    }
+  }, [searchQuery, onSearch]);
 
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
@@ -87,8 +95,8 @@ export default function CustomDropdown({ options, value, onChange, placeholder =
                  </div>
             )}
 
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
+            {(onSearch ? options : filteredOptions).length > 0 ? (
+              (onSearch ? options : filteredOptions).map((option) => (
                 <div
                   key={option.value}
                   className={`${styles.option} ${value === option.value ? styles.selected : ''}`}

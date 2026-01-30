@@ -193,6 +193,10 @@ export default function SalesPage() {
   const [returnUpiAmount, setReturnUpiAmount] = useState<number>(0);
   const [returnCashAmount, setReturnCashAmount] = useState<number>(0);
 
+  // Products Search State
+  const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebounce(productSearch, 300);
+
   const fetchOrders = async () => {
     setLoading(true);
     try {
@@ -211,7 +215,7 @@ export default function SalesPage() {
 
   const loadProducts = async () => {
     // Lite payload for faster loading
-    const data = await fetchProducts('', 1000, 1, 'ACTIVE', 'name,sku,sellingPrice,quantity,category');
+    const data = await fetchProducts(debouncedProductSearch, 20, 1, 'ACTIVE', 'name,sku,sellingPrice,quantity,category');
     if (data && data.data) {
         // Deduplicate products by _id to prevent dropdown duplicates
         const uniqueProducts = Array.from(new Map(data.data.map((p: any) => [p._id, p])).values());
@@ -221,8 +225,11 @@ export default function SalesPage() {
 
   useEffect(() => {
     fetchOrders();
-    loadProducts();
   }, [debouncedSearch, page, limit, selectedMonth]);
+
+  useEffect(() => {
+      loadProducts();
+  }, [debouncedProductSearch]);
 
   // Recalculate total when items change
   useEffect(() => {
@@ -753,6 +760,7 @@ export default function SalesPage() {
                             onChange={(val) => handleAddProduct(val)}
                             placeholder="🔍 Search Product (Name, SKU)..."
                             searchable={true}
+                            onSearch={setProductSearch}
                         />
                     </div>
 
