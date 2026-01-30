@@ -43,10 +43,19 @@ export async function GET() {
     const errors: any[] = [];
 
     for (const set of datasets) {
+        // 1. Delete existing products for this set to prevent duplicates and clean up old formats
+        // Matches "PREFIX-1", "PREFIX-01", etc.
+        const deleteRegex = new RegExp(`^${set.prefix}-\\d+$`); 
+        await Product.deleteMany({ sku: { $regex: deleteRegex } });
+        
+        // 2. Determine padding length (e.g. 430 -> 3 digits, 50 -> 2 digits)
+        const paddingLength = String(set.end).length; // 1-9 -> 1, 10-99 -> 2, 100-999 -> 3
+
         const productsToInsert = [];
         for (let i = set.start; i <= set.end; i++) {
-            // SKU format: Prefix + Number (e.g., "KULIS-GLITTER-1")
-            const sku = `${set.prefix}-${i}`;
+            // SKU format: Prefix + Padded Number (e.g., "KULIS-001")
+            const paddedNumber = String(i).padStart(paddingLength, '0');
+            const sku = `${set.prefix}-${paddedNumber}`;
 
             productsToInsert.push({
                 name: set.name,
