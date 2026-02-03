@@ -30,7 +30,7 @@ export default async function DashboardPage(props: {
   
   // Parse Search Params
   const searchParams = await props.searchParams;
-  const range = searchParams.range || 'this_month';
+  const range = searchParams.range || '7d';
   const fromParam = searchParams.from || null;
   const toParam = searchParams.to || null;
   
@@ -57,12 +57,12 @@ export default async function DashboardPage(props: {
       </Suspense>
 
       {/* 2. Charts: Sales + Orders */}
-      <Suspense fallback={<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}><SectionSkeleton /><SectionSkeleton /></div>}>
+      <Suspense fallback={<div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}><SectionSkeleton /><SectionSkeleton /></div>}>
           <SalesChartsSection {...filterProps} />
       </Suspense>
 
        {/* 3. Products & Heatmap */}
-      <Suspense fallback={<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}><SectionSkeleton /><SectionSkeleton /></div>}>
+      <Suspense fallback={<div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}><SectionSkeleton /><SectionSkeleton /></div>}>
           <ProductsSection {...filterProps} />
       </Suspense>
 

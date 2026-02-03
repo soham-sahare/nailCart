@@ -9,7 +9,7 @@ export default function FilterBar() {
     const searchParams = useSearchParams();
     
     // Get current state from URL
-    const range = searchParams.get('range') || 'this_month';
+    const range = searchParams.get('range') || '7d';
     const fromParam = searchParams.get('from') || '';
     const toParam = searchParams.get('to') || '';
 

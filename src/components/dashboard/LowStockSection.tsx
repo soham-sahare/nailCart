@@ -24,8 +24,8 @@ export default function LowStockSection({ products }: LowStockSectionProps) {
                                 </span>
                             )}
                         </td>
-                        <td style={{ padding: '0.75rem 0', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '0.9rem' }}>
-                            {p.quantity} left
+                        <td style={{ padding: '0.75rem 0', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '1.1rem' }}>
+                            {p.quantity}
                         </td>
                     </tr>
                 ))}
@@ -35,18 +35,17 @@ export default function LowStockSection({ products }: LowStockSectionProps) {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div className="glass custom-scrollbar" style={{ padding: '1.5rem', borderRadius: '1.5rem', maxHeight: '350px', overflowY: 'auto' }}>
+            <div className="glass custom-scrollbar" style={{ borderRadius: '1.5rem', maxHeight: '350px', overflowY: 'auto' }}>
                 <div style={{ 
                     position: 'sticky', 
                     top: 0, 
                     background: 'var(--glass-bg)', 
                     backdropFilter: 'blur(10px)', 
-                    padding: '5px 0', 
+                    padding: '1.5rem 1.5rem 0.5rem 1.5rem', 
                     zIndex: 10, 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'space-between',
-                    marginBottom: '1rem' 
                 }}>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
                         <FiAlertCircle /> Low Stock
@@ -70,11 +69,13 @@ export default function LowStockSection({ products }: LowStockSectionProps) {
                     )}
                 </div>
 
-                {products.length === 0 ? (
-                    <div style={{ color: '#888', fontStyle: 'italic', fontSize: '0.9rem' }}>Stock levels are healthy.</div>
-                ) : (
-                    <LowStockTable data={products} />
-                )}
+                <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+                    {products.length === 0 ? (
+                        <div style={{ color: '#888', fontStyle: 'italic', fontSize: '0.9rem' }}>Stock levels are healthy.</div>
+                    ) : (
+                        <LowStockTable data={products} />
+                    )}
+                </div>
             </div>
 
             <Modal

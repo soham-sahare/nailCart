@@ -15,8 +15,8 @@ export default async function ProductsSection({
     return (
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-        gap: '1.5rem', 
+        gridTemplateColumns: '1fr', 
+        gap: '2rem', 
       }}>
         <TopProducts data={topProducts} />
         <CategoryHeatmap data={topCategories} />

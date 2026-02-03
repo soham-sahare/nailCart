@@ -11,8 +11,8 @@ export default async function SalesChartsSection({
     return (
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', 
-        gap: '1.5rem', 
+        gridTemplateColumns: '1fr', 
+        gap: '2rem', 
       }}>
         <div style={{ minHeight: '400px' }}>
              <SalesChartWrapper 
