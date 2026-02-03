@@ -177,12 +177,12 @@ export const getTopProducts = async (range: string, from?: string | null, to?: s
     const topProducts = await Order.aggregate([
         { $match: { status: { $ne: 'CANCELLED' }, createdAt: dateFilter } },
         { $unwind: '$items' },
-        { $group: { _id: '$items.productName', sales: { $sum: '$items.quantity' } } },
+        { $group: { _id: '$items.productName', sales: { $sum: '$items.quantity' }, sku: { $first: '$items.sku' } } },
         { $sort: { sales: -1 } },
         { $limit: 5 }
     ]);
     
-    return topProducts.map((p: any) => ({ name: p._id, sales: p.sales }));
+    return topProducts.map((p: any) => ({ name: p._id, sales: p.sales, sku: p.sku }));
 };
 
 // 4. Inventory Stats (OPTIMIZED: NO FACET)

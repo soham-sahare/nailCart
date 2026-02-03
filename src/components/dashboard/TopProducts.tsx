@@ -3,7 +3,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
 interface TopProductsProps {
-  data: { name: string; sales: number }[];
+  data: { name: string; sales: number; sku?: string }[];
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -34,11 +34,27 @@ export default function TopProducts({ data }: TopProductsProps) {
                 <YAxis 
                     dataKey="name" 
                     type="category" 
-                    width={100}
+                    width={150} // Increased width for longer labels
                     stroke="#888" 
-                    fontSize={12} 
+                    fontSize={11} 
                     tickLine={false} 
                     axisLine={false} 
+                    tick={(props) => {
+                        const { x, y, payload } = props;
+                        const item = data.find(d => d.name === payload.value);
+                        return (
+                            <g transform={`translate(${x},${y})`}>
+                                <text x={-10} y={0} dy={4} textAnchor="end" fill="var(--foreground)" fontWeight={500}>
+                                    {payload.value.length > 20 ? `${payload.value.slice(0, 17)}...` : payload.value}
+                                </text>
+                                {item?.sku && (
+                                    <text x={-10} y={12} dy={4} textAnchor="end" fill="#888" fontSize={10} fontWeight={400}>
+                                        {item.sku}
+                                    </text>
+                                )}
+                            </g>
+                        );
+                    }}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{fill: 'transparent'}} />
                 <Bar dataKey="sales" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} background={{ fill: 'transparent' }} />
