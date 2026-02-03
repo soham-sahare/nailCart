@@ -205,7 +205,7 @@ export const getInventoryStats = async () => {
         Product.find({ 
             quantity: { $lte: 5 },
             category: { $nin: blockedCatIds }
-        }).select('name quantity').lean(),
+        }).select('name quantity sku').lean(),
         // C. Low Stock Count
         Product.countDocuments({ 
             quantity: { $lte: 5 },

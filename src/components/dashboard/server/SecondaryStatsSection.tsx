@@ -62,7 +62,9 @@ export default async function SecondaryStatsSection({
                         <tbody>
                             {inventory.lowStockProducts.map((p: any) => (
                                 <tr key={String(p._id)} style={{ borderBottom: '1px solid #fcfcfc' }}>
-                                    <td style={{ padding: '0.5rem 0', fontWeight: 500, fontSize: '0.9rem' }}>{p.name}</td>
+                                    <td style={{ padding: '0.5rem 0', fontWeight: 500, fontSize: '0.9rem' }}>
+                                        {p.name}{p.sku ? ` - ${p.sku}` : ''}
+                                    </td>
                                     <td style={{ padding: '0.5rem 0', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '0.9rem' }}>{p.quantity} left</td>
                                 </tr>
                             ))}
