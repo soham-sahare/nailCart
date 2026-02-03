@@ -27,7 +27,7 @@ export default function TopProducts({ data }: TopProductsProps) {
             <BarChart 
                 data={data} 
                 layout="vertical" 
-                margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                margin={{ top: 5, right: 30, left: 160, bottom: 5 }}
             >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#333" />
                 <XAxis type="number" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
