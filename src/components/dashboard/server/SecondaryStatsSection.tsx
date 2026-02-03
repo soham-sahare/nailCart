@@ -52,7 +52,7 @@ export default async function SecondaryStatsSection({
          {/* Low Stock */}
          <div style={{ display: 'flex', flexDirection: 'column' }}>
              <div className="glass custom-scrollbar" style={{ padding: '1.5rem', borderRadius: '1.5rem', maxHeight: '350px', overflowY: 'auto' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.8)', padding: '5px 0', zIndex: 10 }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'sticky', top: 0, padding: '5px 0', zIndex: 10, backdropFilter: 'blur(10px)', background: 'var(--glass-bg)' }}>
                     <FiAlertCircle /> Low Stock
                 </h3>
                  {inventory.lowStockProducts.length === 0 ? (
@@ -63,7 +63,12 @@ export default async function SecondaryStatsSection({
                             {inventory.lowStockProducts.map((p: any) => (
                                 <tr key={String(p._id)} style={{ borderBottom: '1px solid #fcfcfc' }}>
                                     <td style={{ padding: '0.5rem 0', fontWeight: 500, fontSize: '0.9rem' }}>
-                                        {p.name}{p.sku ? ` - ${p.sku}` : ''}
+                                        {p.name}
+                                        {p.sku && (
+                                            <span style={{ color: '#888', fontWeight: 400, marginLeft: '5px', fontSize: '0.85rem' }}>
+                                                - {p.sku}
+                                            </span>
+                                        )}
                                     </td>
                                     <td style={{ padding: '0.5rem 0', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '0.9rem' }}>{p.quantity} left</td>
                                 </tr>
