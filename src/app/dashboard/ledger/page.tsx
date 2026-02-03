@@ -251,7 +251,7 @@ function LedgerContent() {
           <SearchInput 
             value={search} 
             onChange={setSearch} 
-            placeholder="Search ledger..." 
+            placeholder="Search by name or invoice number..." 
           />
 
           <div className={styles.controlActions}>

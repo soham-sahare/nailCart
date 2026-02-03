@@ -8,6 +8,7 @@ import { Analytics } from "@vercel/analytics/next";
 const montserrat = Montserrat({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://nailcart.vercel.app'),
   title: {
     default: 'NailCart | Premium Nail Art Supplies in Nagpur',
     template: '%s | NailCart',

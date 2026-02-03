@@ -44,6 +44,8 @@ interface Order {
   returnType?: string;
   createdAt: string;
   createdBy?: string;
+  balance?: number;
+  isLedger?: boolean;
 }
 
 interface Product {
@@ -114,6 +116,8 @@ export default function SalesPage() {
     paymentMethod: string;
     upiAmount: number;
     cashAmount: number;
+    balance: number;
+    addToLedger: boolean;
   }>({
     customerName: '',
     mobileNumber: '',
@@ -123,7 +127,9 @@ export default function SalesPage() {
     totalAmount: 0, // Will auto calc
     paymentMethod: 'UPI',
     upiAmount: 0,
-    cashAmount: 0
+    cashAmount: 0,
+    balance: 0,
+    addToLedger: false
   });
   const [activeProduct, setActiveProduct] = useState('');
   const [error, setError] = useState('');
@@ -184,6 +190,24 @@ export default function SalesPage() {
       setActiveProduct(''); // Reset dropdown
   };
 
+  const handleContactSelect = (value: string) => {
+      // Find if value is a contact ID or a custom name
+      const contact = contacts.find(c => c._id === value || c.name === value);
+      if (contact) {
+          setFormData(prev => ({
+              ...prev,
+              customerName: contact.name,
+              mobileNumber: contact.phoneNumber || ''
+          }));
+      } else {
+          // Custom value
+          setFormData(prev => ({
+              ...prev,
+              customerName: value
+          }));
+      }
+  };
+
   // Delete & Return State
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [returnOrder, setReturnOrder] = useState<Order | null>(null); // Full order being returned
@@ -196,6 +220,11 @@ export default function SalesPage() {
   // Products Search State
   const [productSearch, setProductSearch] = useState('');
   const debouncedProductSearch = useDebounce(productSearch, 300);
+
+  // Contacts Search State
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const debouncedContactSearch = useDebounce(contactSearch, 300);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -230,6 +259,22 @@ export default function SalesPage() {
   useEffect(() => {
       loadProducts();
   }, [debouncedProductSearch]);
+
+  const loadContacts = async () => {
+    try {
+        const res = await fetch(`/api/contacts?search=${debouncedContactSearch}`);
+        const data = await res.json();
+        if (data.success) {
+            setContacts(data.data);
+        }
+    } catch (err) {
+        console.error('Failed to fetch contacts', err);
+    }
+  };
+
+  useEffect(() => {
+      loadContacts();
+  }, [debouncedContactSearch]);
 
   // Recalculate total when items change
   useEffect(() => {
@@ -275,7 +320,9 @@ export default function SalesPage() {
         totalAmount: order.totalAmount,
         paymentMethod: order.paymentMethod || 'CASH',
         upiAmount: order.upiAmount || 0,
-        cashAmount: order.cashAmount || 0
+        cashAmount: order.cashAmount || 0,
+        balance: (order as any).balance || 0,
+        addToLedger: (order as any).isLedger || false
       });
     } else {
       setEditingOrder(null);
@@ -288,10 +335,13 @@ export default function SalesPage() {
         totalAmount: 0, // Will auto calc
         paymentMethod: 'UPI',
         upiAmount: 0,
-        cashAmount: 0
+        cashAmount: 0,
+        balance: 0,
+        addToLedger: false
       });
       setSendWhatsapp(false);
     }
+    setContactSearch('');
     setError('');
     setIsModalOpen(true);
   };
@@ -722,15 +772,19 @@ export default function SalesPage() {
               <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
                   
                 <div className={styles.formGrid}>
-                    <div>
+                    <div style={{ position: 'relative' }}>
                         <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 500}}>Customer Name</label>
-                        <input
-                            type="text"
-                            className="input-field"
+                        <CustomDropdown
+                            options={contacts.map(c => ({ 
+                                value: c._id, 
+                                label: `${c.name} [${c.phoneNumber || 'No Number'}]` 
+                            }))}
                             value={formData.customerName}
-                            onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                            required
-                            placeholder="Full Name"
+                            onChange={handleContactSelect}
+                            placeholder="🔍 Search Contact or Type Name..."
+                            searchable={true}
+                            allowCustomValue={true}
+                            onSearch={setContactSearch}
                         />
                     </div>
                      <div>
@@ -905,9 +959,33 @@ export default function SalesPage() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ fontWeight: 700, fontSize: '1.3rem', color: 'var(--primary)' }}>
-                            Total: ₹{formData.totalAmount}
+                            Total Bill: ₹{formData.totalAmount}
+                        </div>
+
+                        {/* Balance Field */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                            <label style={{ fontSize: '0.9rem', color: '#888' }}>Balance Due (₹)</label>
+                            <input 
+                                type="number" 
+                                className="input-field" 
+                                style={{ width: '120px', textAlign: 'right', fontWeight: 600, color: '#ef4444' }}
+                                value={formData.balance}
+                                onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
+                                min="0"
+                            />
+                            {formData.balance > 0 && (
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={formData.addToLedger} 
+                                        onChange={(e) => setFormData({ ...formData, addToLedger: e.target.checked })}
+                                        style={{ width: '16px', height: '16px' }}
+                                    />
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>Add to Ledger</span>
+                                </label>
+                            )}
                         </div>
 
                         {/* Payment Method - Inline */}

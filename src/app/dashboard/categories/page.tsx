@@ -26,13 +26,7 @@ interface Category {
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  // ... (rest of component: use placeholders to avoid matching large blocks, only target the start)
 
-  // Wait, I cannot use replace_file_content for non-contiguous changes easily if I don't provide the whole block.
-  // I will split this into two calls or use multi_replace.
-  // Actually, I can just use multi_replace.
-  // But replace_file_content is requested.
-  // I will just update the interface first.
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');

@@ -52,7 +52,7 @@ export const getGlobalMetrics = async (range: string, from?: string | null, to?:
     // Handle All Time Dynamic Start
     if (range === 'all_time') {
          const oldestOrder = await Order.findOne({}, { createdAt: 1 }).sort({ createdAt: 1 }).lean() as any;
-         if (oldestOrder) {
+         if (oldestOrder && oldestOrder.createdAt) {
              const d = new Date(oldestOrder.createdAt);
              d.setHours(0,0,0,0);
              // Mutate local var for query
@@ -123,9 +123,9 @@ export const getSalesTrend = async (range: string, from?: string | null, to?: st
     const { startDate, endDate } = getDateRange(range, from, to);
      // Handle All Time
     if (range === 'all_time') {
-         const oldestOrder = await Order.findOne({}, { createdAt: 1 }).sort({ createdAt: 1 }).lean();
-         if (oldestOrder) {
-             const d = new Date(oldestOrder.createdAt as any);
+         const oldestOrder = await Order.findOne({}, { createdAt: 1 }).sort({ createdAt: 1 }).lean() as any;
+         if (oldestOrder && oldestOrder.createdAt) {
+             const d = new Date(oldestOrder.createdAt);
              d.setHours(0,0,0,0);
              startDate.setTime(d.getTime());
          }
@@ -189,26 +189,36 @@ export const getTopProducts = async (range: string, from?: string | null, to?: s
 export const getInventoryStats = async () => {
     await dbConnect();
     
-    // Run independent efficient queries instead of $facet
-    const [inventorySum, lowStockItems, lowStockCount, categoryStats, categories] = await Promise.all([
+    // Run independent efficient queries 
+    const categories = await Category.find({}, 'name').lean() as any[];
+    const blockedCatIds = categories
+        .filter(c => ['GEL POLISH KIT', 'GEL POLISHES'].includes(c.name))
+        .map(c => c._id);
+
+    const [inventorySum, lowStockItems, lowStockCount, categoryStats] = await Promise.all([
         // A. Total Value
         Product.aggregate([
             { $project: { value: { $multiply: ['$costPrice', '$quantity'] } } },
             { $group: { _id: null, total: { $sum: '$value' } } }
         ]),
-        // B. Low Stock List
-        Product.find({ quantity: { $lte: 6 } }).select('name quantity').limit(20).lean(),
+        // B. Low Stock List (Filtered)
+        Product.find({ 
+            quantity: { $lte: 5 },
+            category: { $nin: blockedCatIds }
+        }).select('name quantity').lean(),
         // C. Low Stock Count
-        Product.countDocuments({ quantity: { $lte: 6 } }),
+        Product.countDocuments({ 
+            quantity: { $lte: 5 },
+            category: { $nin: blockedCatIds }
+        }),
         // D. Category Breakdown
         Product.aggregate([
             { $group: { _id: '$category', count: { $sum: 1 } } }
-        ]),
-        // E. Category Names
-        Category.find({}, 'name').lean()
+        ])
     ]);
     
     const totalValue = inventorySum[0]?.total || 0;
+    const lowStockCountFinal = lowStockCount;
     
     const catMap: Record<string, string> = {};
     categories.forEach((c: any) => catMap[c._id.toString()] = c.name);
@@ -220,7 +230,7 @@ export const getInventoryStats = async () => {
 
     return {
         inventoryValue: totalValue,
-        lowStockCount,
+        lowStockCount: lowStockCountFinal,
         lowStockProducts: lowStockItems,
         categoryBreakdown
     };

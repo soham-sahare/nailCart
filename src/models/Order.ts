@@ -60,6 +60,15 @@ const OrderSchema = new mongoose.Schema({
     enum: ['COMPLETED', 'RETURNED', 'CANCELLED', 'REFUNDED'],
     default: 'COMPLETED',
   },
+  balance: {
+      type: Number,
+      default: 0,
+      min: 0
+  },
+  isLedger: {
+      type: Boolean,
+      default: false
+  },
   type: {
       type: String,
       enum: ['SALE', 'RETURN'], // New field to distinguish Sales vs Returns

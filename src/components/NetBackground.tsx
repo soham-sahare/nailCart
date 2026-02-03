@@ -12,7 +12,7 @@ interface Particle {
   size: number;
 }
 
-const NetBackground = () => {
+export default function NetBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
   const pathname = usePathname();
@@ -127,6 +127,4 @@ const NetBackground = () => {
       }}
     />
   );
-};
-
-export default NetBackground;
+}

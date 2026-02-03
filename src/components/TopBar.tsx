@@ -66,7 +66,7 @@ export default function TopBar() {
               }
           };
           fetchCount();
-          const interval = setInterval(fetchCount, 30000); // Poll every 30s
+          const interval = setInterval(fetchCount, 10800000); // Poll every 3 hours
           return () => clearInterval(interval);
       }
   }, [role]);

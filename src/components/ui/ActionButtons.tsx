@@ -1,3 +1,4 @@
+'use client';
 import React from 'react';
 import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import styles from './ActionButtons.module.css';

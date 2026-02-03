@@ -17,6 +17,14 @@ export async function GET(req: Request) {
     if (type) query.type = type;
     if (status) query.status = status;
 
+    const search = searchParams.get('search');
+    if (search) {
+        query.$or = [
+            { partyName: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } }
+        ];
+    }
+
     const [entries, total] = await Promise.all([
         Ledger.find(query)
             .sort({ date: -1, createdAt: -1 })

@@ -26,6 +26,7 @@ interface Order {
   paymentMethod?: string;
   upiAmount?: number;
   cashAmount?: number;
+  balance?: number;
 
   status: string;
   type?: string;

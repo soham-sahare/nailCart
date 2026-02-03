@@ -154,6 +154,24 @@ export async function POST(req: Request) {
         createdBy: session?.user?.name || 'System'
     });
 
+    // Handle Ledger Entry
+    if (body.addToLedger && body.balance > 0) {
+        const Ledger = (await import('@/models/Ledger')).default;
+        await Ledger.create({
+            partyName: body.customerName,
+            description: `Balance for Bill #${uniqueId}`,
+            type: 'RECEIVABLE',
+            amount: body.balance,
+            status: 'PENDING',
+            date: new Date(),
+            paymentMethod: body.paymentMethod === 'CASH' ? 'CASH' : 'UPI' // Default to payment method used
+        });
+        
+        // Update order to reflect ledger status
+        order.isLedger = true;
+        await order.save();
+    }
+
     // INVENTORY UPDATE: Decrement stock
     await Promise.all(body.items.map((item: any) => {
         const key = `${item.productName}|${item.sku || ''}`;
