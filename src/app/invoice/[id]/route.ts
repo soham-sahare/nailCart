@@ -37,10 +37,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (process.env.NODE_ENV === 'production') {
         // PRODUCTION: Use @sparticuz/chromium and puppeteer-core
         browser = await puppeteerCore.launch({
-            args: chromium.args,
-            defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
-            headless: chromium.headless,
+            args: (chromium as any).args,
+            defaultViewport: (chromium as any).defaultViewport,
+            executablePath: await (chromium as any).executablePath(),
+            headless: (chromium as any).headless,
         });
     } else {
         // DEVELOPMENT: Use standard puppeteer with singleton pattern
@@ -55,6 +55,21 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const page = await browser.newPage();
 
+    // FORWARD COOKIES (Critical for Auth)
+    const cookieHeader = req.headers.get('cookie');
+    if (cookieHeader) {
+        const cookies = cookieHeader.split(';').map(cookie => {
+            const [name, ...value] = cookie.trim().split('=');
+            return { name, value: value.join('='), url: baseUrl };
+        });
+        await page.setCookie(...cookies);
+    }
+
+    // DEBUG: Log console messages from the page
+    page.on('console', (msg: any) => console.log('PAGE LOG:', msg.text()));
+    page.on('pageerror', (err: any) => console.log('PAGE ERROR:', err.toString()));
+    page.on('requestfailed', (request: any) => console.log(`PAGE REQUEST FAILED: ${request.url()} ${request.failure()?.errorText}`));
+
     // Set Viewport based on type
     if (type === 'thermal') {
         await page.setViewport({ width: 302, height: 800 }); // ~80mm width (302px at 96dpi approx)
@@ -65,7 +80,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // OPTIMIZED: Wait for the specific content selector (Much faster than networkidle0)
     // We wait for the totals box which renders after data is fetched.
     await page.goto(invoiceUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForSelector('div[class*="totalsBox"]', { timeout: 10000 });
+    
+    // Check if error message appeared
+    try {
+        await page.waitForSelector('div[class*="totalsBox"]', { timeout: 10000 });
+    } catch (e) {
+        // If timeout, check if we have an error message on page
+        const content = await page.content();
+        console.log('PDF TIMEOUT. Page Content Dump:', content.slice(0, 500)); // Log first 500 chars to check for error text
+        throw e;
+    }
 
     // Generate PDF
     let pdfBuffer;
