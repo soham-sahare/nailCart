@@ -58,11 +58,24 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // FORWARD COOKIES (Critical for Auth)
     const cookieHeader = req.headers.get('cookie');
     if (cookieHeader) {
-        const cookies = cookieHeader.split(';').map(cookie => {
-            const [name, ...value] = cookie.trim().split('=');
-            return { name, value: value.join('='), url: baseUrl };
-        });
-        await page.setCookie(...cookies);
+        const cookies = cookieHeader.split(';')
+            .map(c => c.trim())
+            .filter(c => !!c) // Filter empty strings
+            .map(cookie => {
+                const parts = cookie.split('=');
+                const name = parts.shift() as string;
+                const value = parts.join('='); // Rejoin value in case it contained '='
+                return { 
+                    name, 
+                    value, 
+                    domain: new URL(baseUrl).hostname, 
+                    path: '/' 
+                };
+            });
+        
+        if (cookies.length > 0) {
+            await page.setCookie(...cookies);
+        }
     }
 
     // DEBUG: Log console messages from the page
