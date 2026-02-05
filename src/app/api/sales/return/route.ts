@@ -23,7 +23,11 @@ export async function POST(req: Request) {
     for (const item of items) {
         // Check for Cost Price from Product for accurate Profit calculation on returns
         // We need to know the cost of the item being returned.
-        const product = await Product.findOne({ name: item.productName });
+        const productQuery: any = { name: item.productName };
+        if (item.sku) {
+            productQuery.sku = item.sku;
+        }
+        const product = await Product.findOne(productQuery);
         
         refundAmount += (item.price * item.quantity);
         returnItems.push({

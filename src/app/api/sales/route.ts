@@ -138,7 +138,7 @@ export async function POST(req: Request) {
         return {
             ...item,
             costPrice: product ? product.costPrice : 0, // Snapshot current cost
-            mrp: product ? product.mrp : 0,           // Snapshot MRP
+            mrp: (product && product.mrp) ? product.mrp : (product ? product.sellingPrice : item.price), // Snapshot MRP or fallback to price
             sku: product ? product.sku : item.sku,
             // Item 8: Denormalize Category Name
             category: product && product.category && (product.category as any).name 
