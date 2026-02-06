@@ -69,10 +69,12 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
       if (body.restock) {
         const { default: Product } = await import('@/models/Product');
         for (const item of existingOrder.items) {
-            // Try to find product by name
-            let product = await Product.findOne({ name: item.productName });
+            // Try to find product by Name + SKU (if available) for accuracy
+            const query: any = { name: item.productName };
+            if (item.sku) query.sku = item.sku;
+
+            let product = await Product.findOne(query);
             
-            // Fallback: if we had SKU in future, we'd check that too
             if (product) {
                 product.quantity += item.quantity;
                 await product.save();
