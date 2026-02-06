@@ -36,6 +36,9 @@ export const metadata: Metadata = {
     description: 'Top-rated destination for Nail Art supplies in Nagpur.',
     images: ['/logo.jpg'],
   },
+  icons: {
+    icon: '/icon.jpg',
+  },
 };
 
 export default function RootLayout({
