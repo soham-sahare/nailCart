@@ -74,14 +74,31 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             });
         
         if (cookies.length > 0) {
-            await page.setCookie(...cookies);
+            try {
+                // Set cookies one by one to ensure valid ones are applied even if one fails
+                for (const cookie of cookies) {
+                    // Skip Secure/Host cookies on HTTP connections to prevent ProtocolError
+                    if (invoiceUrl.startsWith('http:') && (cookie.name.startsWith('__Secure-') || cookie.name.startsWith('__Host-'))) {
+                        continue;
+                    }
+                    try {
+                        await page.setCookie({
+                            name: cookie.name,
+                            value: cookie.value,
+                            url: invoiceUrl
+                        });
+                    } catch (err) {
+                        // Silently skip invalid cookies during production to avoid log noise
+                        if (process.env.NODE_ENV !== 'production') {
+                             console.warn(`Skipping invalid cookie: ${cookie.name}`);
+                        }
+                    }
+                }
+            } catch (globalCookieError) {
+                console.error('Puppeteer setCookie wrapper failed:', globalCookieError);
+            }
         }
     }
-
-    // DEBUG: Log console messages from the page
-    page.on('console', (msg: any) => console.log('PAGE LOG:', msg.text()));
-    page.on('pageerror', (err: any) => console.log('PAGE ERROR:', err.toString()));
-    page.on('requestfailed', (request: any) => console.log(`PAGE REQUEST FAILED: ${request.url()} ${request.failure()?.errorText}`));
 
     // Set Viewport based on type
     if (type === 'thermal') {
