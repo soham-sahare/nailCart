@@ -6,15 +6,38 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
   try {
     const params = await props.params;
     await dbConnect();
-    const order = await Order.findById(params.id);
+    const order = await Order.findById(params.id).lean();
     if (!order) {
         // Try looking up by orderId just in case
-        const orderByCustomId = await Order.findOne({ orderId: params.id });
+        const orderByCustomId = await Order.findOne({ orderId: params.id }).lean();
         if(orderByCustomId) {
+             // Enrich with current MRP
+             const Product = (await import('@/models/Product')).default;
+             const productNames = orderByCustomId.items.map((i: any) => i.productName);
+             const products = await Product.find({ name: { $in: productNames } }).select('name mrp').lean();
+             const productMap = new Map(products.map((p: any) => [p.name, p.mrp]));
+             
+             orderByCustomId.items = orderByCustomId.items.map((item: any) => ({
+                 ...item,
+                 currentMrp: productMap.get(item.productName)
+             }));
+
              return NextResponse.json({ success: true, data: orderByCustomId });
         }
         return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
+
+    // Enrich with current MRP
+    const Product = (await import('@/models/Product')).default;
+    const productNames = order.items.map((i: any) => i.productName);
+    const products = await Product.find({ name: { $in: productNames } }).select('name mrp').lean();
+    const productMap = new Map(products.map((p: any) => [p.name, p.mrp]));
+    
+    order.items = order.items.map((item: any) => ({
+        ...item,
+        currentMrp: productMap.get(item.productName)
+    }));
+
     return NextResponse.json({ success: true, data: order });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 400 });

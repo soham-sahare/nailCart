@@ -224,7 +224,7 @@ export default function InvoicePage() {
                                 )}
                             </td>
                             <td>{item.quantity}</td>
-                            <td>{`₹${item.mrp || item.price}`}</td>
+                            <td>{`₹${item.mrp || (item as any).currentMrp || item.price}`}</td>
                             <td>₹{item.price}</td>
                             <td>
                                 <div style={{ fontWeight: 600 }}>₹{item.price * item.quantity}</div>
