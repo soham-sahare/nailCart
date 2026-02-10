@@ -34,37 +34,38 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     console.log(`Generating PDF for: ${invoiceUrl}`);
 
     let browser;
-    if (process.env.NODE_ENV === 'production') {
-        // PRODUCTION: Use @sparticuz/chromium and puppeteer-core
-        browser = await puppeteerCore.launch({
-            args: (chromium as any).args,
-            defaultViewport: (chromium as any).defaultViewport,
-            executablePath: await (chromium as any).executablePath(),
-            headless: (chromium as any).headless,
-        });
-    } else {
-        // DEVELOPMENT: Use standard puppeteer with singleton pattern
-        if (!(global as any).puppeteerBrowser || !(global as any).puppeteerBrowser.isConnected()) {
-            (global as any).puppeteerBrowser = await puppeteer.launch({
+    // Singleton Pattern for BOTH Dev and Prod to reuse warm instances
+    if (!(global as any).puppeteerBrowser || !(global as any).puppeteerBrowser.isConnected()) {
+        if (process.env.NODE_ENV === 'production') {
+            browser = await puppeteerCore.launch({
+                args: [...(chromium as any).args, '--hide-scrollbars', '--disable-web-security'],
+                defaultViewport: (chromium as any).defaultViewport,
+                executablePath: await (chromium as any).executablePath(),
+                headless: (chromium as any).headless,
+                ignoreHTTPSErrors: true,
+            } as any);
+        } else {
+            browser = await puppeteer.launch({
                 headless: true,
                 args: ['--no-sandbox', '--disable-setuid-sandbox'],
             });
         }
-        browser = (global as any).puppeteerBrowser;
+        (global as any).puppeteerBrowser = browser;
     }
+    browser = (global as any).puppeteerBrowser;
 
     const page = await browser.newPage();
 
-    // FORWARD COOKIES (Critical for Auth)
+    // FORWARD COOKIES (Critical for Auth) - OPTIMIZED PARALLEL
     const cookieHeader = req.headers.get('cookie');
     if (cookieHeader) {
         const cookies = cookieHeader.split(';')
             .map(c => c.trim())
-            .filter(c => !!c) // Filter empty strings
+            .filter(c => !!c)
             .map(cookie => {
                 const parts = cookie.split('=');
                 const name = parts.shift() as string;
-                const value = parts.join('='); // Rejoin value in case it contained '='
+                const value = parts.join('=');
                 return { 
                     name, 
                     value, 
@@ -74,50 +75,52 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             });
         
         if (cookies.length > 0) {
-            try {
-                // Set cookies one by one to ensure valid ones are applied even if one fails
-                for (const cookie of cookies) {
-                    // Skip Secure/Host cookies on HTTP connections to prevent ProtocolError
-                    if (invoiceUrl.startsWith('http:') && (cookie.name.startsWith('__Secure-') || cookie.name.startsWith('__Host-'))) {
-                        continue;
-                    }
-                    try {
-                        await page.setCookie({
-                            name: cookie.name,
-                            value: cookie.value,
-                            url: invoiceUrl
-                        });
-                    } catch (err) {
-                        // Silently skip invalid cookies during production to avoid log noise
-                        if (process.env.NODE_ENV !== 'production') {
-                             console.warn(`Skipping invalid cookie: ${cookie.name}`);
-                        }
-                    }
-                }
-            } catch (globalCookieError) {
-                console.error('Puppeteer setCookie wrapper failed:', globalCookieError);
-            }
+            // Parallelize cookie setting
+            await Promise.all(cookies.map(async (cookie) => {
+                 // Skip Secure/Host cookies on HTTP connections
+                 if (invoiceUrl.startsWith('http:') && (cookie.name.startsWith('__Secure-') || cookie.name.startsWith('__Host-'))) {
+                     return;
+                 }
+                 try {
+                     await page.setCookie({
+                         name: cookie.name,
+                         value: cookie.value,
+                         url: invoiceUrl
+                     });
+                 } catch (err) {
+                     // Ignore invalid cookies
+                 }
+            }));
         }
     }
 
     // Set Viewport based on type
     if (type === 'thermal') {
-        await page.setViewport({ width: 302, height: 800 }); // ~80mm width (302px at 96dpi approx)
+        await page.setViewport({ width: 302, height: 800 }); 
     } else {
-        await page.setViewport({ width: 1200, height: 1600 }); // A4 Ratio
+        await page.setViewport({ width: 1200, height: 1600 });
     }
     
-    // OPTIMIZED: Wait for the specific content selector (Much faster than networkidle0)
-    // We wait for the totals box which renders after data is fetched.
-    await page.goto(invoiceUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // OPTIMIZED: Faster Navigation
+    // 1. Block unnecessary resources (Images, Fonts, CSS?) - CSS needed for styling. Images maybe.
+    await page.setRequestInterception(true);
+    page.on('request', (req: any) => {
+        if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+            // actually we need stylesheet for invoice look
+            if (req.resourceType() === 'stylesheet') req.continue();
+            else req.abort();
+        } else {
+            req.continue();
+        }
+    });
+
+    // 2. Wait only for DOM, fail fast
+    await page.goto(invoiceUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
     
-    // Check if error message appeared
     try {
-        await page.waitForSelector('div[class*="totalsBox"]', { timeout: 10000 });
+        await page.waitForSelector('div[class*="totalsBox"]', { timeout: 8000 });
     } catch (e) {
-        // If timeout, check if we have an error message on page
-        const content = await page.content();
-        console.log('PDF TIMEOUT. Page Content Dump:', content.slice(0, 500)); // Log first 500 chars to check for error text
+        // Fallback or re-throw
         throw e;
     }
 
@@ -128,7 +131,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             width: '80mm',
             printBackground: true,
             margin: { top: '0', right: '0', bottom: '0', left: '0' },
-            pageRanges: '1' // Thermal usually continuous
+            pageRanges: '1' 
         });
     } else {
         pdfBuffer = await page.pdf({
@@ -138,11 +141,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         });
     }
 
-    if (process.env.NODE_ENV === 'production') {
-        await browser.close();
-    } else {
-        await page.close(); // Only close the tab, keep browser open in dev
-    }
+    await page.close(); // Always close page, keep browser open in singleton
 
     return new NextResponse(pdfBuffer as any, {
       headers: {

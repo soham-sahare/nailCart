@@ -9,7 +9,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const order = await Order.findById(params.id).lean();
     if (!order) {
         // Try looking up by orderId just in case
-        const orderByCustomId = await Order.findOne({ orderId: params.id }).lean();
+        const orderByCustomId = await Order.findOne({ orderId: params.id }).lean() as any;
         if(orderByCustomId) {
              // Enrich with current MRP
              const Product = (await import('@/models/Product')).default;
@@ -29,11 +29,12 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
     // Enrich with current MRP
     const Product = (await import('@/models/Product')).default;
-    const productNames = order.items.map((i: any) => i.productName);
+    const orderAny = order as any;
+    const productNames = orderAny.items.map((i: any) => i.productName);
     const products = await Product.find({ name: { $in: productNames } }).select('name mrp').lean();
     const productMap = new Map(products.map((p: any) => [p.name, p.mrp]));
     
-    order.items = order.items.map((item: any) => ({
+    orderAny.items = orderAny.items.map((item: any) => ({
         ...item,
         currentMrp: productMap.get(item.productName)
     }));
