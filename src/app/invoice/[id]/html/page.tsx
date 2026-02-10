@@ -142,8 +142,8 @@ export default async function InvoicePage(props: {
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em', marginBottom: '4px' }}>NailCart</div>
 
                 <div className={styles.value} style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#555' }}>
-                    Shraddha Chowk, Plot No. 14,<br />
-                    Opp. SS Collection, Chakradhar Nagar,<br />
+                    Shraddha Chowk, Plot No. 14,
+                    Opp. SS Collection, Chakradhar Nagar,
                     Jawahar Nagar, Ayodhya Nagar,<br />
                     Nagpur, Maharashtra - 440024<br />
                     <span style={{ fontWeight: 600, color: '#000' }}>+91 8600220632</span>
