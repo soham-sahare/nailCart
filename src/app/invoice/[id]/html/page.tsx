@@ -1,11 +1,14 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { FiPrinter } from 'react-icons/fi';
+// import { FiPrinter } from 'react-icons/fi'; // Icons might need client wrapper or be removed for PDF view logic
 import styles from './invoice.module.css';
 import { formatDateIST } from '@/lib/dateUtils';
+import dbConnect from '@/lib/db';
+import Order from '@/models/Order';
+import Product from '@/models/Product'; // Ensure model is registered
+
+// Register models
+import '@/models/Category';
 
 interface OrderItem {
   productName: string;
@@ -14,114 +17,77 @@ interface OrderItem {
   mrp?: number;
 }
 
-interface Order {
-  _id: string;
-  orderId: string;
-  customerName: string;
-  mobileNumber: string;
-  items: OrderItem[];
-  discount: number;
-  courierFees?: number;
-  totalAmount: number;
-  paymentMethod?: string;
-  upiAmount?: number;
-  cashAmount?: number;
-  balance?: number;
-
-  status: string;
-  type?: string;
-  originalOrderId?: string;
-  returnType?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-
-interface Product {
-  name: string;
-  sku: string;
-  category: { name: string };
-}
-
-import { useSearchParams } from 'next/navigation';
-
-export default function InvoicePage() {
-  const { id } = useParams();
-  const searchParams = useSearchParams();
-  const mode = searchParams.get('mode');
+export default async function InvoicePage(props: { 
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ mode?: string }>;
+}) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
+  const { id } = params;
+  const mode = searchParams.mode;
   const isThermal = mode === 'thermal';
-  const [order, setOrder] = useState<Order | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!id) {
-        setLoading(false);
-        setError('Invoice ID is missing.');
-        return;
-      }
-      try {
-        // OPTIMIZED: Fetch Single Order only
-        const res = await fetch(`/api/sales/${id}`); 
-        const data = await res.json();
-        
-        if (data.success && data.data) {
-             setOrder(data.data);
-             // We no longer fetch all products. 
-             // We rely on item details embedded in order or snapshots.
-             // If legacy orders exist without proper snapshot, we might need a fallback, 
-             // but for performance refactor, we assume data integrity or accept minor metadata loss on very old orders.
-        } else {
-             setError('Invoice not found.');
-        }
+  await dbConnect();
 
-      } catch (err) {
-        console.error(err);
-        setError('Failed to fetch invoice data.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) fetchData();
-  }, [id]);
-
-  useEffect(() => {
-    if (order?.orderId) {
-      document.title = `${order.orderId} | NAILCART`;
-    }
-  }, [order]);
-
-  if (loading) return <div style={{padding: '40px', textAlign: 'center'}}>Loading Invoice...</div>;
-  if (!order) return <div style={{padding: '40px', textAlign: 'center'}}>Invoice not found</div>;
-
-  const getItemDetails = (item: OrderItem) => {
-     // Use saved details if available (Preferred)
-     if ((item as any).sku && (item as any).category) {
-         return { sku: (item as any).sku, category: (item as any).category };
+  let order: any = null;
+  try {
+     order = await Order.findById(id).lean();
+     if (!order) {
+         // Fallback to orderId
+         order = await Order.findOne({ orderId: id }).lean();
      }
-     // Fallback: If no snapshot, return empty string to prevent errors. 
-     // (Fetching 1000 products just for this fallback is not worth the performance cost)
+  } catch (e) {
+      console.error(e);
+  }
+
+  if (!order) {
+      return <div style={{padding: '40px', textAlign: 'center'}}>Invoice not found</div>;
+  }
+
+  // Enrich order items if needed (snapshot fallback logic)
+  // The client version didn't do much complex enrichment beyond what's in the API.
+  // We can duplicate the API logic here or just use what's in the order object if it's populated.
+  // The API `GET /api/sales/[id]` did:
+  // 1. findById
+  // 2. lookup current MRP if missing (we can do this)
+
+  if (order) {
+      // Enrich with current MRP logic from API
+      const productNames = order.items.map((i: any) => i.productName);
+      const products = await Product.find({ name: { $in: productNames } }).select('name mrp sku category').lean();
+      const productMap = new Map(products.map((p: any) => [p.name, p])); // Store full product for SKU/Category too
+
+      order.items = order.items.map((item: any) => {
+          const product = productMap.get(item.productName);
+          return {
+              ...item,
+              currentMrp: product?.mrp,
+              // Attach SKU/Category from live product if missing in item snapshot
+              sku: item.sku || product?.sku, 
+              category: item.category || (product as any)?.category, // populate might be needed if category is ref
+          };
+      });
+  }
+
+  const getItemDetails = (item: any) => {
+     if (item.sku) {
+         return { sku: item.sku, category: item.category };
+     }
      return { sku: '', category: '' };
   };
 
-
-
-  const isReturned = order?.type === 'RETURN' || order?.status === 'RETURNED'; // Support both new and old methods
-  const isRefundOnly = order?.returnType === 'REFUND_ONLY';
+  const isReturned = order.type === 'RETURN' || order.status === 'RETURNED';
+  const isRefundOnly = order.returnType === 'REFUND_ONLY';
   
   const invoiceTitle = isReturned 
     ? (isRefundOnly ? 'REFUND RECEIPT' : 'RETURN INVOICE') 
     : 'INVOICE';
 
-  // Use amber/yellow for return to match dashboard
   const themeColor = isReturned ? '#f59e0b' : 'var(--primary)'; 
 
   return (
     <div className={`${styles.container} ${isThermal ? styles.thermal : ''}`}>
-      {/* ... header ... */}
+      {/* Watermark */}
       <div className={styles.watermark}>
         <Image src="/logo.jpg" alt="Watermark" width={500} height={500} style={{ objectFit: 'contain' }} />
       </div>
@@ -135,7 +101,7 @@ export default function InvoicePage() {
             {/* LEFT COLUMN: Invoice No + Customer Info */}
             <div className={styles.headerLeft}>
               
-               {/* Invoice IDs (Top Left) */}
+               {/* Invoice IDs */}
               <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       {isReturned ? (isRefundOnly ? 'REFUND ID' : 'RETURN INVOICE NO') : 'INVOICE NO'}
@@ -154,7 +120,7 @@ export default function InvoicePage() {
                   )}
               </div>
 
-              {/* Customer Info (Left) */}
+              {/* Customer Info */}
               <div>
                   <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill To</div>
                   <div style={{ fontSize: '1.2rem', fontWeight: 700, textTransform: 'capitalize', marginBottom: '2px' }}>{order.customerName}</div>
@@ -198,7 +164,7 @@ export default function InvoicePage() {
                 </tr>
             </thead>
             <tbody>
-                {order.items.map((item, idx) => {
+                {order.items.map((item: any, idx: number) => {
                     const details = getItemDetails(item);
                     return (
                         <tr key={idx}>
@@ -237,7 +203,7 @@ export default function InvoicePage() {
 
         </table>
 
-        {/* Totals Section - Separate from table */}
+        {/* Totals Section */}
         <div className={styles.totals}>
             <div className={styles.totalsBox}>
                 <div className={styles.totalRow}>
@@ -280,8 +246,6 @@ export default function InvoicePage() {
             </div>
         </div>
 
-        
-
         {/* Footer Note */}
         <div style={{ marginTop: '60px', textAlign: 'center', color: '#888', fontSize: '0.9rem' }}>
             Thank you for visiting!
@@ -289,10 +253,12 @@ export default function InvoicePage() {
 
       </div>
 
-      <button className={styles.printBtn} onClick={() => window.print()}>
-        <FiPrinter size={20} /> Print / Save PDF
-      </button>
-
+      {/* Print button is removed in this view as it is meant to be consumed by Puppeteer, 
+          OR we can keep it for debugging but it won't be interactive in PDF. 
+          Actually, let's keep it but make it a client component if interactive, 
+          or just hide it in print media query (which class .printBtn does). 
+          Since we removed 'use client', onClick won't work. We should remove the button or make it a separate Client Component.
+      */}
     </div>
   );
 }
