@@ -11,24 +11,26 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   try {
     // Determine Base URL
     // Priority: 
-    // 1. NEXT_PUBLIC_APP_URL (Manual override)
-    // 2. VERCEL_URL (Automatically set by Vercel)
-    // 3. Request Header (Host) - Most reliable dynamic fallback
+    // 1. Request URL Origin (Dynamic & Correct for Port changes/Dev)
+    // 2. Fallbacks (Env Vars)
     
-    let domain = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
-
-    if (!domain && process.env.VERCEL_URL) {
-        domain = `https://${process.env.VERCEL_URL}`;
+    let baseUrl = '';
+    try {
+        const urlObj = new URL(req.url);
+        baseUrl = urlObj.origin;
+    } catch (e) {
+        // Fallback if req.url is relative (shouldn't happen in App Router usually)
+        let domain = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
+        if (!domain && process.env.VERCEL_URL) {
+            domain = `https://${process.env.VERCEL_URL}`;
+        }
+        if (!domain) {
+             const host = req.headers.get('host');
+             const protocol = host?.includes('localhost') ? 'http' : 'https';
+             if (host) domain = `${protocol}://${host}`;
+        }
+        baseUrl = domain || 'http://localhost:3000';
     }
-
-    // Fallback: Use the incoming request's host
-    if (!domain) {
-      const host = req.headers.get('host');
-      const protocol = host?.includes('localhost') ? 'http' : 'https';
-      if (host) domain = `${protocol}://${host}`;
-    }
-
-    const baseUrl = domain || 'http://localhost:3000';
     const invoiceUrl = `${baseUrl}/invoice/${id}/html?mode=${type}`;
 
     console.log(`Generating PDF for: ${invoiceUrl}`);
@@ -102,13 +104,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
     
     // OPTIMIZED: Faster Navigation
-    // 1. Block unnecessary resources (Images, Fonts, CSS?) - CSS needed for styling. Images maybe.
+    // 1. Block unnecessary resources? (No, we need images for logo/watermark and fonts for styling)
     await page.setRequestInterception(true);
     page.on('request', (req: any) => {
         if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
-            // actually we need stylesheet for invoice look
-            if (req.resourceType() === 'stylesheet') req.continue();
-            else req.abort();
+            req.continue();
         } else {
             req.continue();
         }
@@ -118,9 +118,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     await page.goto(invoiceUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
     
     try {
-        await page.waitForSelector('div[class*="totalsBox"]', { timeout: 8000 });
+        await page.waitForSelector('div[class*="totalsBox"]', { timeout: 30000 });
     } catch (e) {
-        // Fallback or re-throw
+        // If timeout, check if we have an error message on page for debugging
+        const content = await page.content();
+        console.error('PDF TIMEOUT. Page Content Dump (first 1000 chars):', content.slice(0, 1000));
         throw e;
     }
 
