@@ -44,29 +44,31 @@ export default async function InvoicePage(props: {
       return <div style={{padding: '40px', textAlign: 'center'}}>Invoice not found</div>;
   }
 
-  // Enrich order items if needed (snapshot fallback logic)
-  // The client version didn't do much complex enrichment beyond what's in the API.
-  // We can duplicate the API logic here or just use what's in the order object if it's populated.
-  // The API `GET /api/sales/[id]` did:
-  // 1. findById
-  // 2. lookup current MRP if missing (we can do this)
-
-  if (order) {
-      // Enrich with current MRP logic from API
+  // OPTIMIZATION: Only fetch products if snapshot data is missing
+  // Check if all items have mrp and sku already
+  const needsEnrichment = order.items.some((item: any) => !item.mrp || !item.sku);
+  
+  if (needsEnrichment) {
+      // Enrich with current MRP/SKU for legacy orders missing snapshot
       const productNames = order.items.map((i: any) => i.productName);
       const products = await Product.find({ name: { $in: productNames } }).select('name mrp sku category').lean();
-      const productMap = new Map(products.map((p: any) => [p.name, p])); // Store full product for SKU/Category too
+      const productMap = new Map(products.map((p: any) => [p.name, p]));
 
       order.items = order.items.map((item: any) => {
           const product = productMap.get(item.productName);
           return {
               ...item,
-              currentMrp: product?.mrp,
-              // Attach SKU/Category from live product if missing in item snapshot
+              currentMrp: item.mrp || product?.mrp,
               sku: item.sku || product?.sku, 
-              category: item.category || (product as any)?.category, // populate might be needed if category is ref
+              category: item.category || (product as any)?.category,
           };
       });
+  } else {
+      // All items have snapshot data, just use currentMrp = mrp
+      order.items = order.items.map((item: any) => ({
+          ...item,
+          currentMrp: item.mrp,
+      }));
   }
 
   const getItemDetails = (item: any) => {
