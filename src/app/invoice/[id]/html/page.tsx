@@ -250,7 +250,7 @@ export default async function InvoicePage(props: {
 
         {/* Footer Note */}
         <div style={{ marginTop: '60px', textAlign: 'center', color: '#888', fontSize: '0.9rem' }}>
-            Thank you for visiting!
+            🙏 Thank you for visiting! 🙏
         </div>
 
       </div>
