@@ -1270,7 +1270,7 @@ export default function SalesPage() {
                                         <div>
                                             <div style={{ fontWeight: 500 }}>{item.productName}</div>
                                             <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                                                {item.sku && `sku: | ${item.sku} | `}Sold: {item.quantity} | Price: ₹{item.price}
+                                                {item.sku && `#${item.sku} | `}Sold: {item.quantity} | Price: ₹{item.price}
                                             </div>
                                         </div>
 
