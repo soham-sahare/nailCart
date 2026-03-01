@@ -1255,28 +1255,36 @@ export default function SalesPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
-                    {returnOrder.items.map((item, idx) => (
+                    {[...returnOrder.items].sort((a, b) => {
+                        if (a.quantity !== b.quantity) return b.quantity - a.quantity;
+                        if (a.productName !== b.productName) return a.productName.localeCompare(b.productName);
+                        return b.price - a.price;
+                    }).map((item, idx) => {
+                        const originalIdx = returnOrder.items.findIndex(i => i === item);
+                        return (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '12px' }}>
                              <div>
                                  <div style={{ fontWeight: 500 }}>{item.productName}</div>
-                                 <div style={{ fontSize: '0.8rem', color: '#888' }}>Sold: {item.quantity} | Price: ₹{item.price}</div>
+                                 <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                                     {item.sku && `sku: ${item.sku} | `}Sold: {item.quantity} | Price: ₹{item.price}
+                                 </div>
                              </div>
 
                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: returnItems[idx]?.quantity > 0 ? '#ef4444' : '#ccc' }}>
-                                     Return: {returnItems[idx]?.quantity || 0}
+                                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: returnItems[originalIdx]?.quantity > 0 ? '#ef4444' : '#ccc' }}>
+                                     Return: {returnItems[originalIdx]?.quantity || 0}
                                  </div>
                                  <div style={{ display: 'flex', gap: '4px' }}>
                                      <button 
                                         type="button"
-                                        onClick={() => handleReturnItemChange(idx, -1)}
+                                        onClick={() => handleReturnItemChange(originalIdx, -1)}
                                         style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                      >
                                          -
                                      </button>
                                        <button 
                                         type="button"
-                                        onClick={() => handleReturnItemChange(idx, 1)}
+                                        onClick={() => handleReturnItemChange(originalIdx, 1)}
                                         style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}
                                      >
                                          +
@@ -1284,7 +1292,7 @@ export default function SalesPage() {
                                  </div>
                              </div>
                         </div>
-                    ))}
+                    )})}
                 </div>
 
                 <div style={{ marginTop: '2rem' }}>
