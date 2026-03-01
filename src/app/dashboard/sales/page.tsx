@@ -1156,7 +1156,7 @@ export default function SalesPage() {
                                         <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
                                             <td style={{ padding: '0.75rem' }}>
                                                 <div style={{ fontWeight: 500 }}>{item.productName}</div>
-                                                {item.sku && <div style={{ fontSize: '0.75rem', color: '#888' }}>sku: | {item.sku}</div>}
+                                                {item.sku && <div style={{ fontSize: '0.75rem', color: '#888' }}>#{item.sku}</div>}
                                             </td>
                                             <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.quantity}</td>
                                             <td style={{ padding: '0.75rem', textAlign: 'right' }}>₹{item.price}</td>
