@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 import chromium from '@sparticuz/chromium';
 import puppeteerCore from 'puppeteer-core';
+import dbConnect from '@/lib/db';
+import Order from '@/models/Order';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { id } = await params;
@@ -9,6 +11,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const type = searchParams.get('type') || searchParams.get('mode') || 'a4'; // 'a4' or 'thermal'
 
   try {
+    await dbConnect();
+    const order = await Order.findById(id).lean() || await Order.findOne({ orderId: id }).lean();
+    const isGstBill = (order as any)?.isGstBill || false;
     // Determine Base URL
     // Priority: 
     // 1. Request URL Origin (Dynamic & Correct for Port changes/Dev)
@@ -96,10 +101,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         }
     }
 
-    // Set Viewport based on type
+    // Set Viewport based on type and orientation
     if (type === 'thermal') {
         await page.setViewport({ width: 302, height: 800 }); 
+    } else if (isGstBill) {
+        // Landscape for Amitesh Enterprises
+        await page.setViewport({ width: 1600, height: 1200 });
     } else {
+        // Portrait for NailCart
         await page.setViewport({ width: 1200, height: 1600 });
     }
     
@@ -138,6 +147,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     } else {
         pdfBuffer = await page.pdf({
             format: 'A4',
+            landscape: isGstBill,
             printBackground: true,
             margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
         });

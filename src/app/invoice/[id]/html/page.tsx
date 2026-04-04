@@ -180,6 +180,12 @@ export default async function InvoicePage(props: {
                     <th>Qty</th>
                     <th>MRP</th>
                     <th>Price</th>
+                    {order.isGstBill && (
+                        <>
+                            <th>CGST (9%)</th>
+                            <th>SGST (9%)</th>
+                        </>
+                    )}
                     <th>Amount</th>
                 </tr>
             </thead>
@@ -221,6 +227,40 @@ export default async function InvoicePage(props: {
                                     return `₹${item.price}`;
                                 })()}
                             </td>
+                            {order.isGstBill && (
+                                <>
+                                    <td>
+                                        {(() => {
+                                            const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
+                                                           (item.sku || '').toUpperCase().includes('SHILLS');
+                                            if (isShills) {
+                                                const itemQty = Number(item.quantity) || 0;
+                                                const itemPrice = Number(item.price) || 0;
+                                                const itemCost = Number(item.costPrice) || 0;
+                                                const potentialGstPerUnit = itemPrice * (0.18 / 1.18);
+                                                const cappedGstPerUnit = Math.min(potentialGstPerUnit, itemCost);
+                                                return `₹${((cappedGstPerUnit / 2) * itemQty).toFixed(2)}`;
+                                            }
+                                            return '₹0.00';
+                                        })()}
+                                    </td>
+                                    <td>
+                                        {(() => {
+                                            const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
+                                                           (item.sku || '').toUpperCase().includes('SHILLS');
+                                            if (isShills) {
+                                                const itemQty = Number(item.quantity) || 0;
+                                                const itemPrice = Number(item.price) || 0;
+                                                const itemCost = Number(item.costPrice) || 0;
+                                                const potentialGstPerUnit = itemPrice * (0.18 / 1.18);
+                                                const cappedGstPerUnit = Math.min(potentialGstPerUnit, itemCost);
+                                                return `₹${((cappedGstPerUnit / 2) * itemQty).toFixed(2)}`;
+                                            }
+                                            return '₹0.00';
+                                        })()}
+                                    </td>
+                                </>
+                            )}
                             <td>
                                 <div style={{ fontWeight: 600 }}>
                                     {(() => {
