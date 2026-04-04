@@ -89,6 +89,14 @@ const OrderSchema = new mongoose.Schema({
     type: String,
     enum: ['RESTOCK', 'REFUND_ONLY'],
   },
+  isGstBill: {
+    type: Boolean,
+    default: false
+  },
+  gstAmount: {
+    type: Number,
+    default: 0
+  },
 }, { timestamps: true });
 
 // Indexes for Performance

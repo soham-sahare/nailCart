@@ -62,6 +62,11 @@ export async function GET(req: Request) {
         }
     }
 
+    const gstOnly = searchParams.get('gstOnly');
+    if (gstOnly === 'true') {
+        query.isGstBill = true;
+    }
+
     const [orders, total] = await Promise.all([
       Order.find(query)
         .sort({ createdAt: -1 })

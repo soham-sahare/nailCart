@@ -44,8 +44,7 @@ export async function GET(req: Request) {
           lastOrder: { $max: "$createdAt" }
         }
       },
-      { $sort: { lastOrder: -1 } },
-      { $limit: 30 },
+      { $sort: { "_id.name": 1 } },
       {
         $project: {
           _id: 0,

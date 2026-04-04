@@ -69,6 +69,7 @@ export default function SalesPage() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
+    const [showGstOnly, setShowGstOnly] = useState(false);
 
     // Month Selection
     const formatMonthKey = (date: Date) => {
@@ -120,6 +121,8 @@ export default function SalesPage() {
         cashAmount: number;
         balance: number;
         addToLedger: boolean;
+        isGstBill: boolean;
+        gstAmount: number;
     }>({
         customerName: '',
         mobileNumber: '',
@@ -131,7 +134,9 @@ export default function SalesPage() {
         upiAmount: 0,
         cashAmount: 0,
         balance: 0,
-        addToLedger: false
+        addToLedger: false,
+        isGstBill: false,
+        gstAmount: 0
     });
     const [activeProduct, setActiveProduct] = useState('');
     const [error, setError] = useState('');
@@ -250,7 +255,7 @@ export default function SalesPage() {
     const fetchOrders = async () => {
         setLoading(true);
         try {
-            const query = `page=${page}&limit=${limit}&search=${debouncedSearch}&month=${selectedMonth}`;
+            const query = `page=${page}&limit=${limit}&search=${debouncedSearch}&month=${selectedMonth}&gstOnly=${showGstOnly}`;
             const res = await fetch(`/api/sales?${query}`);
             const data = await res.json();
             setOrders(data.data);
@@ -275,7 +280,7 @@ export default function SalesPage() {
 
     useEffect(() => {
         fetchOrders();
-    }, [debouncedSearch, page, limit, selectedMonth]);
+    }, [debouncedSearch, page, limit, selectedMonth, showGstOnly]);
 
     useEffect(() => {
         loadProducts();
@@ -301,9 +306,13 @@ export default function SalesPage() {
     // Recalculate total when items change
     useEffect(() => {
         const subtotal = formData.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-        const total = Math.max(0, subtotal - Number(formData.discount) + Number(formData.courierFees || 0));
-        setFormData(prev => ({ ...prev, totalAmount: total }));
-    }, [formData.items, formData.discount, formData.courierFees]);
+        let gstAmount = 0;
+        if (formData.isGstBill) {
+            gstAmount = Math.round(subtotal * 0.18);
+        }
+        const total = Math.max(0, subtotal - Number(formData.discount) + Number(formData.courierFees || 0) + gstAmount);
+        setFormData(prev => ({ ...prev, totalAmount: total, gstAmount }));
+    }, [formData.items, formData.discount, formData.courierFees, formData.isGstBill]);
 
     // Auto-update payment amounts when total changes
     useEffect(() => {
@@ -344,7 +353,9 @@ export default function SalesPage() {
                 upiAmount: order.upiAmount || 0,
                 cashAmount: order.cashAmount || 0,
                 balance: (order as any).balance || 0,
-                addToLedger: (order as any).isLedger || false
+                addToLedger: (order as any).isLedger || false,
+                isGstBill: (order as any).isGstBill || false,
+                gstAmount: (order as any).gstAmount || 0
             });
         } else {
             setEditingOrder(null);
@@ -359,7 +370,9 @@ export default function SalesPage() {
                 upiAmount: 0,
                 cashAmount: 0,
                 balance: 0,
-                addToLedger: false
+                addToLedger: false,
+                isGstBill: false,
+                gstAmount: 0
             });
             setSendWhatsapp(false);
         }
@@ -691,6 +704,20 @@ export default function SalesPage() {
                                     onChange={setSelectedMonth}
                                 />
                             </div>
+                        </div>
+
+                        {/* GST Filter Toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: '0.5rem', marginRight: '0.5rem' }}>
+                            <input
+                                type="checkbox"
+                                id="gstOnlyFilter"
+                                checked={showGstOnly}
+                                onChange={(e) => setShowGstOnly(e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="gstOnlyFilter" style={{ cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                                GST Bills Only
+                            </label>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1103,12 +1130,23 @@ export default function SalesPage() {
                                 />
                                 <label htmlFor="whatsapp" style={{ cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     Send Invoice on
-                                    <span style={{ color: '#25D366' }}>
-                                        WhatsApp
-                                    </span>
+                                    <span style={{ color: '#25D366' }}> WhatsApp</span>
                                 </label>
                             </div>
                         )}
+
+                        <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <input
+                                type="checkbox"
+                                id="isGstBill"
+                                checked={formData.isGstBill}
+                                onChange={(e) => setFormData({ ...formData, isGstBill: e.target.checked })}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="isGstBill" style={{ cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500, color: 'var(--primary)' }}>
+                                Create GST Bill (Amitesh Enterprises)
+                            </label>
+                        </div>
 
                         <div className={styles.modalActions}>
                             <button type="button" className={styles.btnCancel} onClick={handleCloseModal}>Cancel</button>

@@ -90,9 +90,11 @@ export default async function InvoicePage(props: {
   return (
     <div className={`${styles.container} ${isThermal ? styles.thermal : ''}`}>
       {/* Watermark */}
-      <div className={styles.watermark}>
-        <Image src="/logo.jpg" alt="Watermark" width={500} height={500} style={{ objectFit: 'contain' }} />
-      </div>
+      {!order.isGstBill && (
+        <div className={styles.watermark}>
+          <Image src="/logo.jpg" alt="Watermark" width={500} height={500} style={{ objectFit: 'contain' }} />
+        </div>
+      )}
 
       <div className={styles.content}>
         {/* Header */}
@@ -136,19 +138,35 @@ export default async function InvoicePage(props: {
 
             {/* CENTER COLUMN: Logo */}
             <div className={styles.headerCenter}>
-                <Image src="/logo.jpg" alt="Logo" width={100} height={100} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+                {!order.isGstBill && (
+                    <Image src="/logo.jpg" alt="Logo" width={100} height={100} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+                )}
             </div>
 
             {/* RIGHT COLUMN: Store Info */}
             <div className={styles.headerRight}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em', marginBottom: '4px' }}>NailCart</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+                    {order.isGstBill ? 'Amitesh Enterprises' : 'NailCart'}
+                </div>
 
                 <div className={styles.value} style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#555' }}>
-                    Shraddha Chowk, Plot No. 14,
-                    Opp. SS Collection, Chakradhar Nagar,
-                    Jawahar Nagar, Ayodhya Nagar,<br />
-                    Nagpur, Maharashtra - 440024<br />
-                    <span style={{ fontWeight: 600, color: '#000' }}>+91 8600220632</span>
+                    {order.isGstBill ? (
+                        <>
+                            Plot No. 22, Near Ganesh Mandir,<br />
+                            Wardha Road, Nagpur,<br />
+                            Maharashtra - 440015<br />
+                            <span style={{ fontWeight: 600, color: '#000' }}>GSTIN: 27ABCDE1234F1Z5</span><br />
+                            <span style={{ fontWeight: 600, color: '#000' }}>+91 8600220632</span>
+                        </>
+                    ) : (
+                        <>
+                            Shraddha Chowk, Plot No. 14,<br />
+                            Opp. SS Collection, Chakradhar Nagar,<br />
+                            Jawahar Nagar, Ayodhya Nagar,<br />
+                            Nagpur, Maharashtra - 440024<br />
+                            <span style={{ fontWeight: 600, color: '#000' }}>+91 8600220632</span>
+                        </>
+                    )}
                 </div>
             </div>
           </div>
@@ -223,6 +241,18 @@ export default async function InvoicePage(props: {
                         <span>Courier Fees</span>
                         <span>+ ₹{order.courierFees}</span>
                     </div>
+                )}
+                {order.isGstBill && (
+                    <>
+                        <div className={styles.totalRow}>
+                            <span>CGST (9%)</span>
+                            <span>+ ₹{(order.gstAmount / 2).toFixed(2)}</span>
+                        </div>
+                        <div className={styles.totalRow}>
+                            <span>SGST (9%)</span>
+                            <span>+ ₹{(order.gstAmount / 2).toFixed(2)}</span>
+                        </div>
+                    </>
                 )}
                 <div className={styles.totalRow + ' ' + styles.final}>
                     <span>Total</span>
