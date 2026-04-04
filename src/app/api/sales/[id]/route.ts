@@ -1,40 +1,30 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
     const params = await props.params;
     await dbConnect();
-    const order = await Order.findById(params.id).lean();
-    if (!order) {
-        // Try looking up by orderId just in case
-        const orderByCustomId = await Order.findOne({ orderId: params.id }).lean() as any;
-        if(orderByCustomId) {
-             // Enrich with current MRP
-             const Product = (await import('@/models/Product')).default;
-             const productNames = orderByCustomId.items.map((i: any) => i.productName);
-             const products = await Product.find({ name: { $in: productNames } }).select('name mrp').lean();
-             const productMap = new Map(products.map((p: any) => [p.name, p.mrp]));
-             
-             orderByCustomId.items = orderByCustomId.items.map((item: any) => ({
-                 ...item,
-                 currentMrp: productMap.get(item.productName)
-             }));
 
-             return NextResponse.json({ success: true, data: orderByCustomId });
-        }
+    // 1. Find Order (by _id or custom orderId)
+    const order = await Order.findOne({ 
+        $or: [{ _id: params.id.match(/^[0-9a-fA-F]{24}$/) ? params.id : null }, { orderId: params.id }] 
+    }).lean() as any;
+
+    if (!order) {
         return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
 
-    // Enrich with current MRP
+    // 2. Optimized Enrichment: Fetch MRPs in a single query
     const Product = (await import('@/models/Product')).default;
-    const orderAny = order as any;
-    const productNames = orderAny.items.map((i: any) => i.productName);
+    const productNames = order.items.map((i: any) => i.productName);
     const products = await Product.find({ name: { $in: productNames } }).select('name mrp').lean();
     const productMap = new Map(products.map((p: any) => [p.name, p.mrp]));
     
-    orderAny.items = orderAny.items.map((item: any) => ({
+    order.items = order.items.map((item: any) => ({
         ...item,
         currentMrp: productMap.get(item.productName)
     }));
@@ -47,6 +37,11 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
 export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'OWNER') {
+        return NextResponse.json({ success: false, message: 'Forbidden: Only owners can modify orders' }, { status: 403 });
+    }
+
     const params = await props.params;
     await dbConnect();
     const body = await req.json();
@@ -99,6 +94,11 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
 
 export async function DELETE(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'OWNER') {
+        return NextResponse.json({ success: false, message: 'Forbidden: Only owners can delete orders' }, { status: 403 });
+    }
+
     const params = await props.params;
     await dbConnect();
     const order = await Order.findByIdAndDelete(params.id);

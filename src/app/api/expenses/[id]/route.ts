@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Expense from '@/models/Expense';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function PUT(
   req: Request,
   props: { params: Promise<{ id: string }> }
 ) {
-  const params = await props.params;
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'OWNER') {
+        return NextResponse.json({ success: false, message: 'Forbidden: Only owners can modify expenses' }, { status: 403 });
+    }
+
+    const params = await props.params;
     await dbConnect();
     const body = await req.json();
     const expense = await Expense.findByIdAndUpdate(params.id, body, {
@@ -27,8 +34,13 @@ export async function DELETE(
   req: Request,
   props: { params: Promise<{ id: string }> }
 ) {
-  const params = await props.params;
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'OWNER') {
+        return NextResponse.json({ success: false, message: 'Forbidden: Only owners can delete expenses' }, { status: 403 });
+    }
+
+    const params = await props.params;
     await dbConnect();
     const expense = await Expense.findByIdAndDelete(params.id);
     if (!expense) {
