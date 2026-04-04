@@ -61,26 +61,35 @@ export const getGlobalMetrics = async (range: string, from?: string | null, to?:
     }
 
     const dateFilter = { $gte: startDate, $lte: endDate };
-    const saleMatch = { status: { $ne: 'CANCELLED' }, type: 'SALE', createdAt: dateFilter };
+    const orderMatch = { status: { $ne: 'CANCELLED' }, createdAt: dateFilter };
     
     const [stats, expenseStats, profitAgg] = await Promise.all([
         Order.aggregate([
-            { $match: saleMatch }, 
-            { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' }, totalOrders: { $count: {} } } }
+            { $match: orderMatch }, 
+            { $group: { 
+                _id: null, 
+                totalRevenue: { 
+                    $sum: { $cond: [{ $eq: ["$type", "SALE"] }, "$totalAmount", { $multiply: ["$totalAmount", -1] }] } 
+                },
+                totalOrders: { 
+                    $sum: { $cond: [{ $eq: ["$type", "SALE"] }, 1, 0] } 
+                } 
+            }}
         ]),
         Expense.aggregate([
             { $match: { date: dateFilter } },
             { $group: { _id: null, total: { $sum: '$amount' } } }
         ]),
-        // Profit Calculation
+        // Profit Calculation (Sales Profit - Return Refund loss)
         Order.aggregate([
-            { $match: saleMatch },
+            { $match: orderMatch },
             { $project: {
+                type: 1,
                 items: 1, 
                 totalAmount: 1
             }},
             { $project: {
-                revenue: "$totalAmount",
+                revenue: { $cond: [{ $eq: ["$type", "SALE"] }, "$totalAmount", { $multiply: ["$totalAmount", -1] }] },
                 cost: { 
                      $sum: { 
                         $map: { 
@@ -89,9 +98,21 @@ export const getGlobalMetrics = async (range: string, from?: string | null, to?:
                             in: { $multiply: [ { $ifNull: ["$$item.costPrice", 0] }, "$$item.quantity" ] } 
                         } 
                     } 
-                }
+                },
+                type: 1
             }},
-            { $group: { _id: null, totalProfit: { $sum: { $subtract: ["$revenue", "$cost"] } } } }
+            { $group: { 
+                _id: null, 
+                totalProfit: { 
+                    $sum: { 
+                        $cond: [
+                            { $eq: ["$type", "SALE"] }, 
+                            { $subtract: ["$revenue", "$cost"] }, // Profit from sale
+                            { $subtract: ["$revenue", { $multiply: ["$cost", -1] }] } // Loss from return
+                        ] 
+                    } 
+                } 
+            }}
         ])
     ]);
 
@@ -145,8 +166,24 @@ export const getSalesTrend = async (range: string, from?: string | null, to?: st
         }},
         { $group: {
             _id: "$date",
-            sales: { $sum: { $cond: [ { $eq: ["$type", "SALE"] }, "$totalAmount", 0 ] } },
-            cost: { $sum: { $cond: [ { $eq: ["$type", "SALE"] }, "$cost", 0 ] } },
+            sales: { 
+                $sum: { 
+                    $cond: [ 
+                        { $eq: ["$type", "SALE"] }, 
+                        "$totalAmount", 
+                        { $multiply: ["$totalAmount", -1] } 
+                    ] 
+                } 
+            },
+            cost: { 
+                $sum: { 
+                    $cond: [ 
+                        { $eq: ["$type", "SALE"] }, 
+                        "$cost", 
+                        { $multiply: ["$cost", -1] } 
+                    ] 
+                } 
+            },
             orders: { $sum: { $cond: [ { $eq: ["$type", "SALE"] }, 1, 0 ] } }
         }},
         { $addFields: {
@@ -241,18 +278,31 @@ export const getSecondaryStats = async (range: string, from?: string | null, to?
     await dbConnect();
     const { startDate, endDate } = getDateRange(range, from, to);
     const dateFilter = { $gte: startDate, $lte: endDate };
-    const saleMatch = { status: { $ne: 'CANCELLED' }, type: 'SALE', createdAt: dateFilter };
+    const orderMatch = { status: { $ne: 'CANCELLED' }, createdAt: dateFilter };
 
     const [topCustomersRaw, topSellersRaw, recentSalesRaw] = await Promise.all([
          Order.aggregate([
-             { $match: saleMatch },
-             { $group: { _id: '$mobileNumber', name: { $first: '$customerName' }, total: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
+             { $match: orderMatch },
+             { $group: { 
+                 _id: '$mobileNumber', 
+                 name: { $first: '$customerName' }, 
+                 total: { 
+                     $sum: { $cond: [{ $eq: ["$type", "SALE"] }, "$totalAmount", { $multiply: ["$totalAmount", -1] }] } 
+                 }, 
+                 orders: { $sum: { $cond: [{ $eq: ["$type", "SALE"] }, 1, 0] } } 
+             } },
              { $sort: { total: -1 } },
              { $limit: 5 }
          ]),
          Order.aggregate([
-            { $match: saleMatch },
-            { $group: { _id: '$createdBy', total: { $sum: '$totalAmount' }, count: { $sum: 1 } } },
+            { $match: orderMatch },
+            { $group: { 
+                _id: '$createdBy', 
+                total: { 
+                    $sum: { $cond: [{ $eq: ["$type", "SALE"] }, "$totalAmount", { $multiply: ["$totalAmount", -1] }] } 
+                }, 
+                count: { $sum: { $cond: [{ $eq: ["$type", "SALE"] }, 1, 0] } } 
+            } },
             { $sort: { total: -1 } },
             { $limit: 5 }
          ]),
@@ -290,9 +340,14 @@ export const getTopCategories = async (range: string, from?: string | null, to?:
     const dateFilter = { $gte: startDate, $lte: endDate };
 
     const cats = await Order.aggregate([
-        { $match: { status: { $ne: 'CANCELLED' }, type: 'SALE', createdAt: dateFilter } },
+        { $match: { status: { $ne: 'CANCELLED' }, createdAt: dateFilter } },
         { $unwind: '$items' },
-        { $group: { _id: { $ifNull: ['$items.category', 'Uncategorized'] }, sales: { $sum: '$items.quantity' } } },
+        { $group: { 
+            _id: { $ifNull: ['$items.category', 'Uncategorized'] }, 
+            sales: { 
+                $sum: { $cond: [{ $eq: ["$type", "SALE"] }, "$items.quantity", { $multiply: ["$items.quantity", -1] }] } 
+            } 
+        } },
         { $sort: { sales: -1 } },
         { $limit: 8 }
     ]);
@@ -306,9 +361,12 @@ export const getWeeklyPattern = async (range: string, from?: string | null, to?:
     const { startDate, endDate } = getDateRange(range, from, to);
     
     const pattern = await Order.aggregate([
-          { $match: { status: { $ne: 'CANCELLED' }, type: 'SALE', createdAt: { $gte: startDate, $lte: endDate } } },
-          { $project: { dayOfWeek: { $dayOfWeek: { date: '$createdAt', timezone: "+05:30" } }, totalAmount: 1 } },
-          { $group: { _id: '$dayOfWeek', sales: { $sum: '$totalAmount' } } },
+          { $match: { status: { $ne: 'CANCELLED' }, createdAt: { $gte: startDate, $lte: endDate } } },
+          { $project: { 
+              dayOfWeek: { $dayOfWeek: { date: '$createdAt', timezone: "+05:30" } }, 
+              amount: { $cond: [{ $eq: ["$type", "SALE"] }, "$totalAmount", { $multiply: ["$totalAmount", -1] }] }
+          } },
+          { $group: { _id: '$dayOfWeek', sales: { $sum: '$amount' } } },
           { $sort: { _id: 1 } }
     ]);
     
