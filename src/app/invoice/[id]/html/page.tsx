@@ -152,10 +152,10 @@ export default async function InvoicePage(props: {
                 <div className={styles.value} style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#555' }}>
                     {order.isGstBill ? (
                         <>
-                            Plot No. 22, Near Ganesh Mandir,<br />
-                            Wardha Road, Nagpur,<br />
-                            Maharashtra - 440015<br />
-                            <span style={{ fontWeight: 600, color: '#000' }}>GSTIN: 27ABCDE1234F1Z5</span><br />
+                            Flat No. 121, Vidarbha Theatre Complex,<br />
+                            Tiranga Chowk, Hanuman Nagar, Nagpur<br />
+                            Nagpur, Maharashtra - 440009<br />
+                            <span style={{ fontWeight: 600, color: '#000' }}>GSTIN: 27NQJPS5560M1ZQ</span><br />
                             <span style={{ fontWeight: 600, color: '#000' }}>+91 8600220632</span>
                         </>
                     ) : (
@@ -211,10 +211,27 @@ export default async function InvoicePage(props: {
                             </td>
                             <td>{item.quantity}</td>
                             <td>{`₹${item.mrp || (item as any).currentMrp || item.price}`}</td>
-                            <td>₹{item.price}</td>
                             <td>
-                                <div style={{ fontWeight: 600 }}>₹{item.price * item.quantity}</div>
-
+                                {(() => {
+                                    const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
+                                                   (item.sku || '').toUpperCase().includes('SHILLS');
+                                    if (order.isGstBill && isShills) {
+                                        return `₹${(item.price / 1.18).toFixed(2)}`;
+                                    }
+                                    return `₹${item.price}`;
+                                })()}
+                            </td>
+                            <td>
+                                <div style={{ fontWeight: 600 }}>
+                                    {(() => {
+                                        const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
+                                                       (item.sku || '').toUpperCase().includes('SHILLS');
+                                        if (order.isGstBill && isShills) {
+                                            return `₹${((item.price / 1.18) * item.quantity).toFixed(2)}`;
+                                        }
+                                        return `₹${item.price * item.quantity}`;
+                                    })()}
+                                </div>
                             </td>
                         </tr>
                     );
@@ -228,7 +245,7 @@ export default async function InvoicePage(props: {
             <div className={styles.totalsBox}>
                 <div className={styles.totalRow}>
                     <span>Subtotal</span>
-                    <span>₹{order.totalAmount + (order.discount || 0) - (order.courierFees || 0)}</span>
+                    <span>₹{(order.totalAmount + (order.discount || 0) - (order.courierFees || 0) - (order.gstAmount || 0)).toFixed(2)}</span>
                 </div>
                 {order.discount > 0 && (
                      <div className={styles.totalRow} style={{ color: '#ef4444' }}>

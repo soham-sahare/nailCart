@@ -152,9 +152,35 @@ export async function POST(req: Request) {
         };
     });
 
+    // RECALCULATE GST AND TOTAL FOR INTEGRITY (Inclusive Rule)
+    let calculatedGst = 0;
+    if (body.isGstBill) {
+        enrichedItems.forEach((item: any) => {
+            const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
+                           (item.sku || '').toUpperCase().includes('SHILLS');
+            
+            if (isShills) {
+                const itemQty = Number(item.quantity) || 0;
+                const itemPrice = Number(item.price) || 0;
+                const itemCost = Number(item.costPrice) || 0;
+
+                // Inclusive Rule: Price includes tax. Derived Base = 250 / 1.18. Tax = 250 - 211.86.
+                const potentialGstPerUnit = itemPrice * (0.18 / 1.18);
+                const cappedGstPerUnit = Math.min(potentialGstPerUnit, itemCost);
+                
+                calculatedGst += (cappedGstPerUnit * itemQty);
+            }
+        });
+    }
+
+    const itemSum = enrichedItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const calculatedTotal = Math.max(0, itemSum - (body.discount || 0) + (body.courierFees || 0));
+
     const order = await Order.create({ 
         ...body, 
         items: enrichedItems,
+        gstAmount: calculatedGst,
+        totalAmount: calculatedTotal,
         orderId: uniqueId,
         createdBy: session?.user?.name || 'System'
     });

@@ -23,6 +23,7 @@ interface OrderItem {
     sku?: string;
     category?: string;
     mrp?: number;
+    costPrice?: number;
     availableQty?: number; // Snapshot of stock at time of add
 }
 
@@ -57,6 +58,7 @@ interface Product {
     sku: string;
     category: { name: string };
     quantity: number;
+    costPrice: number;
 }
 
 export default function SalesPage() {
@@ -187,6 +189,7 @@ export default function SalesPage() {
                 price: product.sellingPrice,
                 sku: product.sku,
                 category: product.category?.name || '',
+                costPrice: product.costPrice,
                 availableQty: product.quantity // Snapshot
             };
 
@@ -270,7 +273,7 @@ export default function SalesPage() {
 
     const loadProducts = async () => {
         // Lite payload for faster loading
-        const data = await fetchProducts(debouncedProductSearch, 20, 1, 'ACTIVE', 'name,sku,sellingPrice,quantity,category');
+        const data = await fetchProducts(debouncedProductSearch, 20, 1, 'ACTIVE', 'name,sku,sellingPrice,quantity,category,costPrice');
         if (data && data.data) {
             // Deduplicate products by _id to prevent dropdown duplicates
             const uniqueProducts = Array.from(new Map(data.data.map((p: any) => [p._id, p])).values());
@@ -305,12 +308,36 @@ export default function SalesPage() {
 
     // Recalculate total when items change
     useEffect(() => {
-        const subtotal = formData.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const itemSum = formData.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
         let gstAmount = 0;
+        
         if (formData.isGstBill) {
-            gstAmount = Math.round(subtotal * 0.18);
+            formData.items.forEach(item => {
+                const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
+                               (item.sku || '').toUpperCase().includes('SHILLS');
+                
+                if (isShills) {
+                    const itemQty = Number(item.quantity) || 0;
+                    const itemPrice = Number(item.price) || 0;
+                    const itemCost = Number(item.costPrice) || 0;
+
+                    // Inclusive Logic: Base = Price / 1.18. Tax = Price - Base.
+                    const itemInclusiveTotal = itemPrice * itemQty;
+                    const itemBaseTotal = itemInclusiveTotal / 1.18;
+                    const calculatedTax = itemInclusiveTotal - itemBaseTotal;
+                    
+                    // Capped Tax Rule: Tax per unit cannot exceed Cost Price per unit
+                    // (But for inclusive bills, we usually keep the Price fixed and just breakdown the tax)
+                    const potentialGstPerUnit = itemPrice * (0.18 / 1.18);
+                    const cappedGstPerUnit = Math.min(potentialGstPerUnit, itemCost);
+
+                    gstAmount += (cappedGstPerUnit * itemQty);
+                }
+            });
         }
-        const total = Math.max(0, subtotal - Number(formData.discount) + Number(formData.courierFees || 0) + gstAmount);
+
+        // Total is fixed (inclusive). Note: discount and courier fees are added/subtracted after item sum.
+        const total = Math.max(0, itemSum - Number(formData.discount) + Number(formData.courierFees || 0));
         setFormData(prev => ({ ...prev, totalAmount: total, gstAmount }));
     }, [formData.items, formData.discount, formData.courierFees, formData.isGstBill]);
 
