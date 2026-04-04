@@ -172,19 +172,27 @@ export async function POST(req: Request) {
         await order.save();
     }
 
-    // INVENTORY UPDATE: Decrement stock
-    await Promise.all(body.items.map((item: any) => {
+    // INVENTORY UPDATE: Atomic Decrement (Safe against race conditions)
+    await Promise.all(body.items.map(async (item: any) => {
         const key = `${item.productName}|${item.sku || ''}`;
         if (productMap.has(key)) {
              const filter: any = { name: item.productName };
              if(item.sku) filter.sku = item.sku;
              
-             return Product.updateOne(
+             // Ensure quantity doesn't go below requested amount
+             filter.quantity = { $gte: item.quantity };
+
+             const updateResult = await Product.updateOne(
                 filter,
                 { $inc: { quantity: -item.quantity } }
              );
+
+             if (updateResult.modifiedCount === 0) {
+                 // Even though we validated at start, another concurrent request 
+                 // might have snatched the stock. 
+                 throw new Error(`Inventory race condition: Stock for "${item.productName}" was depleted by another session.`);
+             }
         }
-        return Promise.resolve();
     }));
     return NextResponse.json({ success: true, data: order }, { status: 201 });
   } catch (error: any) {

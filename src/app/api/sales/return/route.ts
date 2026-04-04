@@ -19,52 +19,50 @@ export async function POST(req: Request) {
     
     // 3. Process Items & Stock match
     const returnItems = [];
-    
+    const originalOrder = await Order.findOne({ orderId: originalOrderId });
+    if (!originalOrder) {
+        return NextResponse.json({ success: false, message: 'Original order not found' }, { status: 404 });
+    }
+
     for (const item of items) {
-        // Check for Cost Price from Product for accurate Profit calculation on returns
-        // We need to know the cost of the item being returned.
+        // Find the matching item in the original order to get its COST PRICE snapshot
+        const originalItem = (originalOrder.items as any[]).find((oi: any) => 
+            oi.productName === item.productName && (oi.sku || "") === (item.sku || "")
+        );
+
         const productQuery: any = { name: item.productName };
-        if (item.sku) {
-            productQuery.sku = item.sku;
-        }
-        const product = await Product.findOne(productQuery);
+        if (item.sku) productQuery.sku = item.sku;
+        
+        const product = await Product.findOne(productQuery).lean() as any;
         
         refundAmount += (item.price * item.quantity);
         returnItems.push({
             productName: item.productName,
             quantity: item.quantity,
             price: item.price,
-            costPrice: product ? product.costPrice : 0, // Save cost price for profit calculation
+            // PRIORITY: use original cost snapshot, fallback to current product, fallback to 0
+            costPrice: originalItem?.costPrice ?? product?.costPrice ?? 0, 
             sku: item.sku,
             category: item.category
         });
 
-        // Update Stock if RESTOCK
-        if (returnType === 'RESTOCK' && product) {
-             product.quantity += item.quantity;
-             await product.save();
+        // Update Stock if RESTOCK (ATOMIC UPDATE)
+        if (returnType === 'RESTOCK') {
+             await Product.updateOne(
+                productQuery,
+                { $inc: { quantity: item.quantity } }
+             );
         }
     }
 
     // 4. Create Return Order
-    // We need customer details from original order, fetch it
-    const originalOrder = await Order.findOne({ orderId: originalOrderId });
-    if (!originalOrder) {
-        return NextResponse.json({ success: false, message: 'Original order not found' }, { status: 404 });
-    }
-
-    // Check if already returned
-    if (originalOrder.hasReturn) {
-         return NextResponse.json({ success: false, message: 'This order has already been returned/refunded.' }, { status: 400 });
-    }
-
     const newReturnOrder = await Order.create({
         orderId: newId,
         customerName: originalOrder.customerName,
         mobileNumber: originalOrder.mobileNumber,
         items: returnItems,
-        totalAmount: refundAmount, // This acts as the refund amount
-        discount: 0, // No discount on return usually, or calculate proportional? Simplicity -> 0
+        totalAmount: refundAmount, 
+        discount: 0, 
         paymentMethod: paymentMethod || 'CASH',
         upiAmount: upiAmount || 0,
         cashAmount: cashAmount || 0,
@@ -74,10 +72,8 @@ export async function POST(req: Request) {
         returnType: returnType
     });
 
-    // 5. Update Original Order Status to prevent future returns
-    // originalOrder.status = 'RETURNED'; // Removed per user request
+    // 5. Update Original Order Status
     originalOrder.hasReturn = true;
-    // originalOrder.returnType = returnType; // We can keep this if needed for record, or just rely on the linked return order
     await originalOrder.save();
 
     return NextResponse.json({ success: true, data: newReturnOrder });

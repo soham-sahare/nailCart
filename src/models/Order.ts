@@ -99,6 +99,7 @@ OrderSchema.index({ status: 1 });
 OrderSchema.index({ customerName: 1 });
 OrderSchema.index({ mobileNumber: 1 });
 OrderSchema.index({ type: 1 });
+OrderSchema.index({ originalOrderId: 1 });
 
 // User Request Item 13 & 21: Compound & Partial Index for Analytics
 // This index specifically targets the main dashboard filter: Active Sales
