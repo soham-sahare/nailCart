@@ -16,12 +16,14 @@ import { fetchProducts } from '@/lib/fetchers';
 import { useDebounce } from '@/hooks/useDebounce';
 
 interface OrderItem {
+    productId?: string; // Track exact DB record
     productName: string;
     quantity: number;
     price: number;
     sku?: string;
     category?: string;
     mrp?: number;
+    availableQty?: number; // Snapshot of stock at time of add
 }
 
 interface Order {
@@ -145,7 +147,6 @@ export default function SalesPage() {
 
         const productName = product.name;
 
-        // Check if product already exists (Match Name AND SKU)
         const existingItemIndex = formData.items.findIndex(item =>
             item.productName === productName &&
             (item.sku || '') === (product.sku || '')
@@ -154,9 +155,13 @@ export default function SalesPage() {
         if (existingItemIndex !== -1) {
             // Merge Logic: Increment Quantity
             const newItems = [...formData.items];
-            // Check stock limit
-            if (newItems[existingItemIndex].quantity + 1 > (product.quantity || 0)) {
-                showToast('error', 'Insufficient Stock', `Cannot add more "${productName}". Available: ${product.quantity}`);
+            const currentItem = newItems[existingItemIndex];
+            
+            // Validation: Use snapshot first, fallback to current search result product
+            const maxAllowed = currentItem.availableQty ?? product.quantity ?? 0;
+
+            if (currentItem.quantity + 1 > maxAllowed) {
+                showToast('error', 'Insufficient Stock', `Cannot add more "${productName}". Available: ${maxAllowed}`);
                 setActiveProduct('');
                 return;
             }
@@ -164,18 +169,20 @@ export default function SalesPage() {
             setFormData({ ...formData, items: newItems });
             showToast('success', 'Merged', `"${productName}" already exists. Added +1 quantity.`);
         } else {
-            // Add New Logic
+            // Add New Logic: Use snapshot
             if ((product.quantity || 0) < 1) {
                 showToast('error', 'Out of Stock', `"${productName}" is out of stock.`);
                 setActiveProduct('');
                 return;
             }
             const newItem: OrderItem = {
+                productId: product._id,
                 productName: product.name,
                 quantity: 1,
                 price: product.sellingPrice,
                 sku: product.sku,
-                category: product.category?.name || ''
+                category: product.category?.name || '',
+                availableQty: product.quantity // Snapshot
             };
 
             setFormData({
@@ -191,21 +198,35 @@ export default function SalesPage() {
     };
 
     const handleContactSelect = (value: string) => {
-        // Find if value is a contact ID or a custom name
-        const contact = contacts.find(c => c._id === value || c.name === value);
-        if (contact) {
+        // 1. Try to find in the 'Recent Customers' list (from history) using composite key "Name|Phone"
+        const [namePart, phonePart] = value.split('|');
+        const recent = contacts.find(c => c.name === namePart && (c.phone || '') === (phonePart || ''));
+        
+        if (recent) {
             setFormData(prev => ({
                 ...prev,
-                customerName: contact.name,
-                mobileNumber: contact.phoneNumber || ''
+                customerName: recent.name,
+                mobileNumber: recent.phone || ''
             }));
-        } else {
-            // Custom value
-            setFormData(prev => ({
-                ...prev,
-                customerName: value
-            }));
+            return;
         }
+
+        // 2. Fallback: Try to find by name only (for manually typed or manual selection)
+        const contactByName = contacts.find(c => c.name === value);
+        if (contactByName) {
+             setFormData(prev => ({
+                ...prev,
+                customerName: contactByName.name,
+                mobileNumber: contactByName.phone || contactByName.phoneNumber || ''
+            }));
+            return;
+        }
+
+        // 3. Custom value typed manually
+        setFormData(prev => ({
+            ...prev,
+            customerName: value
+        }));
     };
 
     // Delete & Return State
@@ -262,13 +283,14 @@ export default function SalesPage() {
 
     const loadContacts = async () => {
         try {
-            const res = await fetch(`/api/contacts?search=${debouncedContactSearch}`);
+            // Priority: Search Recent Sales History (Last 40 Days)
+            const res = await fetch(`/api/sales/customers/recent?search=${debouncedContactSearch}`);
             const data = await res.json();
             if (data.success) {
                 setContacts(data.data);
             }
         } catch (err) {
-            console.error('Failed to fetch contacts', err);
+            console.error('Failed to fetch recent customers', err);
         }
     };
 
@@ -457,9 +479,16 @@ export default function SalesPage() {
 
         // Stock Validation
         if (delta > 0) {
-            const product = products.find(p => p.name === item.productName);
-            if (product && newQty > (product.quantity || 0)) {
-                showToast('error', 'Insufficient Stock', `Cannot exceed available quantity: ${product.quantity}`);
+            // 1. Try to find the product in current search results using COMPOSITE KEY
+            const product = products.find(p => 
+                p.name === item.productName && (p.sku || '') === (item.sku || '')
+            );
+
+            // 2. Use snapshot if product is not in current search results
+            const maxAllowed = product ? product.quantity : (item.availableQty ?? 9999);
+
+            if (newQty > maxAllowed) {
+                showToast('error', 'Insufficient Stock', `Cannot exceed available quantity: ${maxAllowed}`);
                 return;
             }
         }
@@ -776,8 +805,8 @@ export default function SalesPage() {
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Customer Name</label>
                                 <CustomDropdown
                                     options={contacts.map(c => ({
-                                        value: c._id,
-                                        label: `${c.name} [${c.phoneNumber || 'No Number'}]`
+                                        value: `${c.name}|${c.phone || ''}`, // Composite key for uniqueness
+                                        label: `${c.name} ${c.phone ? `[${c.phone}]` : ''}`
                                     }))}
                                     value={formData.customerName}
                                     onChange={handleContactSelect}
