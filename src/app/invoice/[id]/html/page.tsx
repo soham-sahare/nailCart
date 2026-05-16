@@ -33,7 +33,6 @@ export default async function InvoicePage(props: {
   try {
      order = await Order.findById(id).lean();
      if (!order) {
-         // Fallback to orderId
          order = await Order.findOne({ orderId: id }).lean();
      }
   } catch (e) {
@@ -44,32 +43,60 @@ export default async function InvoicePage(props: {
       return <div style={{padding: '40px', textAlign: 'center'}}>Invoice not found</div>;
   }
 
-  // OPTIMIZATION: Only fetch products if snapshot data is missing
-  // Check if all items have mrp and sku already
-  const needsEnrichment = order.items.some((item: any) => !item.mrp || !item.sku);
-  
-  if (needsEnrichment) {
-      // Enrich with current MRP/SKU for legacy orders missing snapshot
-      const productNames = order.items.map((i: any) => i.productName);
-      const products = await Product.find({ name: { $in: productNames } }).select('name mrp sku category').lean();
-      const productMap = new Map(products.map((p: any) => [p.name, p]));
+  // --- Consolidated Logic ---
+  let baseOrder = order;
+  let allReturns: any[] = [];
 
-      order.items = order.items.map((item: any) => {
-          const product = productMap.get(item.productName);
-          return {
-              ...item,
-              currentMrp: item.mrp || product?.mrp,
-              sku: item.sku || product?.sku, 
-              category: item.category || (product as any)?.category,
-          };
-      });
-  } else {
-      // All items have snapshot data, just use currentMrp = mrp
-      order.items = order.items.map((item: any) => ({
-          ...item,
-          currentMrp: item.mrp,
-      }));
+  // If viewing a return, pull the original sale as base
+  if (order.type === 'RETURN' && order.originalOrderId) {
+      const original = await Order.findOne({ orderId: order.originalOrderId }).lean();
+      if (original) baseOrder = original;
   }
+
+  // Pull all returns linked to the base order
+  allReturns = await Order.find({ 
+      originalOrderId: baseOrder.orderId, 
+      type: 'RETURN',
+      status: { $ne: 'CANCELLED' } 
+  }).sort({ createdAt: 1 }).lean();
+
+  // Enrich base order items if needed
+  const enrichItems = async (targetOrder: any) => {
+      const needsEnrichment = targetOrder.items.some((item: any) => !item.mrp || !item.sku);
+      if (needsEnrichment) {
+          const productNames = targetOrder.items.map((i: any) => i.productName);
+          const products = await Product.find({ name: { $in: productNames } }).select('name mrp sku category').lean();
+          const productMap = new Map(products.map((p: any) => [p.name, p]));
+
+          targetOrder.items = targetOrder.items.map((item: any) => {
+              const product = productMap.get(item.productName);
+              return {
+                  ...item,
+                  currentMrp: item.mrp || product?.mrp || item.price,
+                  sku: item.sku || product?.sku, 
+                  category: item.category || (product as any)?.category,
+              };
+          });
+      } else {
+          targetOrder.items = targetOrder.items.map((item: any) => ({
+              ...item,
+              currentMrp: item.mrp || item.price,
+          }));
+      }
+  };
+
+  await enrichItems(baseOrder);
+  for (const ret of allReturns) {
+      await enrichItems(ret);
+  }
+
+  const isReturned = order.type === 'RETURN' || order.status === 'RETURNED';
+  const isRefundOnly = order.returnType === 'REFUND_ONLY';
+  const hasReturns = allReturns.length > 0;
+  
+  const invoiceTitle = hasReturns 
+    ? 'CONSOLIDATED INVOICE' 
+    : (isReturned ? (isRefundOnly ? 'REFUND RECEIPT' : 'RETURN INVOICE') : 'INVOICE');
 
   const getItemDetails = (item: any) => {
      if (item.sku) {
@@ -78,12 +105,63 @@ export default async function InvoicePage(props: {
      return { sku: '', category: '' };
   };
 
-  const isReturned = order.type === 'RETURN' || order.status === 'RETURNED';
-  const isRefundOnly = order.returnType === 'REFUND_ONLY';
-  
-  const invoiceTitle = isReturned 
-    ? (isRefundOnly ? 'REFUND RECEIPT' : 'RETURN INVOICE') 
-    : 'INVOICE';
+  const renderItemRow = (item: any, isReturn = false, retId?: string, returnType?: string) => {
+      const details = getItemDetails(item);
+      const isGstBill = baseOrder.isGstBill;
+      const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
+                       (item.sku || '').toUpperCase().includes('SHILLS');
+
+      const skuParts = details.sku ? details.sku.split('-') : [];
+      const lastPart = skuParts.length > 0 ? skuParts[skuParts.length - 1] : '';
+      const isNumeric = !isNaN(Number(lastPart)) && lastPart.trim() !== '';
+
+      const returnLabel = returnType === 'REFUND_ONLY' ? 'Refund' : 'Return';
+
+      return (
+          <tr key={isReturn ? `ret-${retId}-${item.productName}-${item.sku}` : `base-${item.productName}-${item.sku}`} className={isReturn ? styles.returnRow : ''}>
+              <td>
+                  <div style={{ fontWeight: 600 }}>
+                      {item.productName}
+                      {isNumeric && <span style={{ fontWeight: 400, color: isReturn ? 'inherit' : '#444' }}> - {lastPart}</span>}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: isReturn ? 'inherit' : '#666', marginTop: '2px', opacity: isReturn ? 0.8 : 1 }}>
+                      {details.sku && `#${details.sku} `}
+                      {isReturn && `(${returnLabel})`}
+                  </div>
+              </td>
+              <td>{item.quantity}</td>
+              <td>{`₹${item.currentMrp}`}</td>
+              <td>
+                  {(() => {
+                      if (isGstBill && isShills) return `₹${(item.price / 1.18).toFixed(2)}`;
+                      return `₹${item.price}`;
+                  })()}
+              </td>
+              {isGstBill && (
+                  <>
+                      <td>
+                          {isShills ? (
+                              `₹${((Math.min(item.price * (0.18 / 1.18), item.costPrice || 0) / 2) * item.quantity).toFixed(2)}`
+                          ) : '₹0.00'}
+                      </td>
+                      <td>
+                          {isShills ? (
+                              `₹${((Math.min(item.price * (0.18 / 1.18), item.costPrice || 0) / 2) * item.quantity).toFixed(2)}`
+                          ) : '₹0.00'}
+                      </td>
+                  </>
+              )}
+              <td>
+                  <div style={{ fontWeight: 600 }}>
+                      {isReturn ? '-' : ''}₹{(() => {
+                          if (isGstBill && isShills) return ((item.price / 1.18) * item.quantity).toFixed(2);
+                          return (item.price * item.quantity).toFixed(2);
+                      })()}
+                  </div>
+              </td>
+          </tr>
+      );
+  };
 
   const themeColor = isReturned ? '#f59e0b' : 'var(--primary)'; 
 
@@ -108,13 +186,13 @@ export default async function InvoicePage(props: {
                {/* Invoice IDs */}
               <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {isReturned ? (isRefundOnly ? 'REFUND ID' : 'RETURN INVOICE NO') : 'INVOICE NO'}
+                      {hasReturns ? 'ORIGINAL INVOICE NO' : (isReturned ? (isRefundOnly ? 'REFUND ID' : 'RETURN INVOICE NO') : 'INVOICE NO')}
                   </div>
                   <div className={styles.mono} style={{ fontSize: '1.25rem', fontWeight: 700, color: '#000' }}>
-                      {order.orderId}
+                      {baseOrder.orderId}
                   </div>
-                   {/* Reference ID for Returns */}
-                  {(isReturned && order.originalOrderId) && (
+                   {/* Reference ID for Returns if not consolidated */}
+                  {(isReturned && !hasReturns && order.originalOrderId) && (
                       <div style={{ marginTop: '0.25rem' }}>
                           <span style={{ fontSize: '0.8rem', color: '#888', marginRight: '0.5rem' }}>Ref:</span>
                           <span className={styles.mono} style={{ fontSize: '0.9rem', fontWeight: 600, color: '#555' }}>
@@ -122,23 +200,28 @@ export default async function InvoicePage(props: {
                           </span>
                       </div>
                   )}
+                  {hasReturns && (
+                      <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#666' }}>
+                          Includes Returns: {allReturns.map(r => r.orderId).join(', ')}
+                      </div>
+                  )}
               </div>
 
               {/* Customer Info */}
               <div>
                   <div style={{ fontSize: '0.85rem', color: '#888', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill To</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 700, textTransform: 'capitalize', marginBottom: '2px' }}>{order.customerName}</div>
-                  <div style={{ fontSize: '1rem', color: '#444', marginBottom: '8px' }}>{order.mobileNumber}</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, textTransform: 'capitalize', marginBottom: '2px' }}>{baseOrder.customerName}</div>
+                  <div style={{ fontSize: '1rem', color: '#444', marginBottom: '8px' }}>{baseOrder.mobileNumber}</div>
                   
                   <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                      Date: <span style={{ fontWeight: 600, color: '#000' }}>{formatDateIST(order.createdAt)}</span>
+                      Date: <span style={{ fontWeight: 600, color: '#000' }}>{formatDateIST(baseOrder.createdAt)}</span>
                   </div>
               </div>
             </div>
 
             {/* CENTER COLUMN: Logo */}
             <div className={styles.headerCenter}>
-                {!order.isGstBill && (
+                {!baseOrder.isGstBill && (
                     <Image src="/logo.jpg" alt="Logo" width={100} height={100} style={{ borderRadius: '50%', objectFit: 'cover' }} />
                 )}
             </div>
@@ -146,11 +229,11 @@ export default async function InvoicePage(props: {
             {/* RIGHT COLUMN: Store Info */}
             <div className={styles.headerRight}>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-                    {order.isGstBill ? 'Amitesh Enterprises' : 'NailCart'}
+                    {baseOrder.isGstBill ? 'Amitesh Enterprises' : 'NailCart'}
                 </div>
 
                 <div className={styles.value} style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#555' }}>
-                    {order.isGstBill ? (
+                    {baseOrder.isGstBill ? (
                         <>
                             Flat No. 121, Vidarbha Theatre Complex,<br />
                             Tiranga Chowk, Hanuman Nagar, Nagpur<br />
@@ -180,7 +263,7 @@ export default async function InvoicePage(props: {
                     <th>Qty</th>
                     <th>MRP</th>
                     <th>Price</th>
-                    {order.isGstBill && (
+                    {baseOrder.isGstBill && (
                         <>
                             <th>CGST (9%)</th>
                             <th>SGST (9%)</th>
@@ -190,131 +273,80 @@ export default async function InvoicePage(props: {
                 </tr>
             </thead>
             <tbody>
-                {order.items.map((item: any, idx: number) => {
-                    const details = getItemDetails(item);
-                    return (
-                        <tr key={idx}>
-                            <td>
-                                <div style={{ fontWeight: 600 }}>
-                                    {(() => {
-                                        const skuParts = details.sku ? details.sku.split('-') : [];
-                                        const lastPart = skuParts.length > 0 ? skuParts[skuParts.length - 1] : '';
-                                        const isNumeric = !isNaN(Number(lastPart)) && lastPart.trim() !== '';
-                                        
-                                        return (
-                                            <>
-                                                {item.productName}
-                                                {isNumeric && <span style={{ fontWeight: 400, color: '#444' }}> - {lastPart}</span>}
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                                {details.sku && (
-                                    <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '2px' }}>
-                                        #{details.sku}
-                                    </div>
-                                )}
-                            </td>
-                            <td>{item.quantity}</td>
-                            <td>{`₹${item.mrp || (item as any).currentMrp || item.price}`}</td>
-                            <td>
-                                {(() => {
-                                    const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
-                                                   (item.sku || '').toUpperCase().includes('SHILLS');
-                                    if (order.isGstBill && isShills) {
-                                        return `₹${(item.price / 1.18).toFixed(2)}`;
-                                    }
-                                    return `₹${item.price}`;
-                                })()}
-                            </td>
-                            {order.isGstBill && (
-                                <>
-                                    <td>
-                                        {(() => {
-                                            const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
-                                                           (item.sku || '').toUpperCase().includes('SHILLS');
-                                            if (isShills) {
-                                                const itemQty = Number(item.quantity) || 0;
-                                                const itemPrice = Number(item.price) || 0;
-                                                const itemCost = Number(item.costPrice) || 0;
-                                                const potentialGstPerUnit = itemPrice * (0.18 / 1.18);
-                                                const cappedGstPerUnit = Math.min(potentialGstPerUnit, itemCost);
-                                                return `₹${((cappedGstPerUnit / 2) * itemQty).toFixed(2)}`;
-                                            }
-                                            return '₹0.00';
-                                        })()}
-                                    </td>
-                                    <td>
-                                        {(() => {
-                                            const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
-                                                           (item.sku || '').toUpperCase().includes('SHILLS');
-                                            if (isShills) {
-                                                const itemQty = Number(item.quantity) || 0;
-                                                const itemPrice = Number(item.price) || 0;
-                                                const itemCost = Number(item.costPrice) || 0;
-                                                const potentialGstPerUnit = itemPrice * (0.18 / 1.18);
-                                                const cappedGstPerUnit = Math.min(potentialGstPerUnit, itemCost);
-                                                return `₹${((cappedGstPerUnit / 2) * itemQty).toFixed(2)}`;
-                                            }
-                                            return '₹0.00';
-                                        })()}
-                                    </td>
-                                </>
-                            )}
-                            <td>
-                                <div style={{ fontWeight: 600 }}>
-                                    {(() => {
-                                        const isShills = (item.productName || '').toUpperCase().includes('SHILLS') || 
-                                                       (item.sku || '').toUpperCase().includes('SHILLS');
-                                        if (order.isGstBill && isShills) {
-                                            return `₹${((item.price / 1.18) * item.quantity).toFixed(2)}`;
-                                        }
-                                        return `₹${item.price * item.quantity}`;
-                                    })()}
-                                </div>
+                {/* 1. ORIGINAL ITEMS */}
+                {hasReturns && (
+                    <tr>
+                        <td colSpan={baseOrder.isGstBill ? 7 : 5} className={styles.sectionHeader}>
+                            Purchased Items
+                        </td>
+                    </tr>
+                )}
+                {baseOrder.items.map((item: any) => renderItemRow(item))}
+
+                {/* 2. RETURNED ITEMS */}
+                {hasReturns && (
+                    <>
+                        <tr>
+                            <td colSpan={baseOrder.isGstBill ? 7 : 5} className={`${styles.sectionHeader} ${styles.returnSectionHeader}`}>
+                                Returned Items
                             </td>
                         </tr>
-                    );
-                })}
+                        {allReturns.flatMap((ret) => 
+                            ret.items.map((item: any) => renderItemRow(item, true, ret.orderId, ret.returnType))
+                        )}
+                    </>
+                )}
             </tbody>
-
         </table>
 
         {/* Totals Section */}
         <div className={styles.totals}>
             <div className={styles.totalsBox}>
                 <div className={styles.totalRow}>
-                    <span>Subtotal</span>
-                    <span>₹{(order.totalAmount + (order.discount || 0) - (order.courierFees || 0) - (order.gstAmount || 0)).toFixed(2)}</span>
+                    <span>Original Subtotal</span>
+                    <span>₹{(baseOrder.totalAmount + (baseOrder.discount || 0) - (baseOrder.courierFees || 0) - (baseOrder.gstAmount || 0)).toFixed(2)}</span>
                 </div>
-                {order.discount > 0 && (
+                {baseOrder.discount > 0 && (
                      <div className={styles.totalRow} style={{ color: '#ef4444' }}>
                         <span>Discount</span>
-                        <span>- ₹{order.discount}</span>
+                        <span>- ₹{baseOrder.discount}</span>
                     </div>
                 )}
-                {(order.courierFees || 0) > 0 && (
+                {(baseOrder.courierFees || 0) > 0 && (
                      <div className={styles.totalRow}>
                         <span>Courier Fees</span>
-                        <span>+ ₹{order.courierFees}</span>
+                        <span>+ ₹{baseOrder.courierFees}</span>
                     </div>
                 )}
-                {order.isGstBill && (
+                {baseOrder.isGstBill && (
                     <>
                         <div className={styles.totalRow}>
                             <span>CGST (9%)</span>
-                            <span>+ ₹{(order.gstAmount / 2).toFixed(2)}</span>
+                            <span>+ ₹{(baseOrder.gstAmount / 2).toFixed(2)}</span>
                         </div>
                         <div className={styles.totalRow}>
                             <span>SGST (9%)</span>
-                            <span>+ ₹{(order.gstAmount / 2).toFixed(2)}</span>
+                            <span>+ ₹{(baseOrder.gstAmount / 2).toFixed(2)}</span>
                         </div>
                     </>
                 )}
-                <div className={styles.totalRow + ' ' + styles.final}>
-                    <span>Total</span>
-                    <span>₹{order.totalAmount}</span>
+                <div className={`${styles.totalRow} ${!hasReturns ? styles.final : ''}`} style={hasReturns ? { fontWeight: 700, borderTop: '1px solid #eee', marginTop: '4px', paddingTop: '4px' } : {}}>
+                    <span>{hasReturns ? 'Original Total' : 'Total Amount'}</span>
+                    <span>₹{baseOrder.totalAmount}</span>
                 </div>
+
+                {hasReturns && (
+                    <>
+                        <div className={styles.totalRow} style={{ color: '#be123c', marginTop: '12px' }}>
+                            <span>Total Refunded</span>
+                            <span>- ₹{allReturns.reduce((sum, r) => sum + r.totalAmount, 0)}</span>
+                        </div>
+                        <div className={`${styles.totalRow} ${styles.final} ${styles.netTotalBox}`}>
+                            <span style={{ fontSize: '1.1rem' }}>Final Net Total</span>
+                            <span style={{ fontSize: '1.25rem' }}>₹{(baseOrder.totalAmount - allReturns.reduce((sum, r) => sum + r.totalAmount, 0)).toFixed(2)}</span>
+                        </div>
+                    </>
+                )}
                 {/* Payment Method */}
                 <div style={{ fontSize: '0.9rem', color: '#666' }}>
                       Payment Method: <span style={{ fontWeight: 600, color: '#000' }}>{order.paymentMethod}</span>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { FiPlus, FiCornerUpLeft, FiMinus } from 'react-icons/fi';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import SearchInput from '@/components/ui/SearchInput';
@@ -793,16 +794,23 @@ export default function SalesPage() {
                                 orders.map((order) => (
                                     <tr key={order._id}>
                                         <td>
-                                            <span
-                                                style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '3px' }}
-                                                onClick={() => window.open(`/invoice/${order._id}`, '_blank')}
+                                            <Link
+                                                href={`/invoice/${order._id}`}
+                                                target="_blank"
+                                                style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '3px', display: 'inline-block' }}
                                             >
                                                 {order.orderId}
-                                            </span>
+                                            </Link>
                                             {order.originalOrderId && (
-                                                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem' }}>
+                                                <Link 
+                                                    href={`/invoice/${order.originalOrderId}`}
+                                                    target="_blank"
+                                                    style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem', display: 'block', textDecoration: 'none', cursor: 'pointer' }}
+                                                    onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                                                    onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                                                >
                                                     Ref: {order.originalOrderId}
-                                                </div>
+                                                </Link>
                                             )}
                                         </td>
                                         <td style={{ fontWeight: 500 }}>{order.customerName}</td>
@@ -1197,7 +1205,26 @@ export default function SalesPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
                             <div>
                                 <div style={{ fontSize: '0.9rem', color: '#888' }}>Order ID</div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{viewingOrder.orderId}</div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                                    <Link 
+                                        href={`/invoice/${viewingOrder._id}`} 
+                                        target="_blank"
+                                        style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+                                    >
+                                        {viewingOrder.orderId}
+                                    </Link>
+                                </div>
+                                {viewingOrder.originalOrderId && (
+                                    <Link 
+                                        href={`/invoice/${viewingOrder.originalOrderId}`}
+                                        target="_blank"
+                                        style={{ fontSize: '0.85rem', color: '#888', textDecoration: 'none', display: 'block', marginTop: '0.25rem' }}
+                                        onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                                        onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                                    >
+                                        Ref: {viewingOrder.originalOrderId}
+                                    </Link>
+                                )}
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: '0.9rem', color: '#888' }}>Date</div>
