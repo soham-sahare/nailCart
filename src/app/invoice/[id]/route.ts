@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer';
 import chromium from '@sparticuz/chromium';
 import puppeteerCore from 'puppeteer-core';
 import dbConnect from '@/lib/db';
+import '@/models/Category';
 import Order from '@/models/Order';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {

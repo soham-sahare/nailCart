@@ -4,11 +4,10 @@ import Image from 'next/image';
 import styles from './invoice.module.css';
 import { formatDateIST } from '@/lib/dateUtils';
 import dbConnect from '@/lib/db';
-import Order from '@/models/Order';
-import Product from '@/models/Product'; // Ensure model is registered
-
-// Register models
+// Register models first
 import '@/models/Category';
+import Order from '@/models/Order';
+import Product from '@/models/Product';
 
 interface OrderItem {
   productName: string;
