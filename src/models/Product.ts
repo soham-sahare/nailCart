@@ -40,6 +40,12 @@ const ProductSchema = new mongoose.Schema({
     enum: ['ACTIVE', 'INACTIVE'],
     default: 'ACTIVE',
   },
+  lowStockThreshold: {
+    type: Number,
+    default: 10,
+    min: 0,
+  },
+
 }, { timestamps: true });
 
 // Methods/Indexes

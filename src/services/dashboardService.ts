@@ -253,6 +253,14 @@ export const getInventoryStats = async () => {
             { $group: { _id: '$category', count: { $sum: 1 } } }
         ])
     ]);
+
+
+    // Ensure _id is a string for Client Components
+    const serializedLowStock = lowStockItems.map((p: any) => ({
+        ...p,
+        _id: p._id.toString()
+    }));
+
     
     const totalValue = inventorySum[0]?.total || 0;
     const lowStockCountFinal = lowStockCount;
@@ -268,9 +276,10 @@ export const getInventoryStats = async () => {
     return {
         inventoryValue: totalValue,
         lowStockCount: lowStockCountFinal,
-        lowStockProducts: lowStockItems,
+        lowStockProducts: serializedLowStock,
         categoryBreakdown
     };
+
 };
 
 // 5. Lists (Customers, Top Sellers, Recent)
@@ -313,6 +322,13 @@ export const getSecondaryStats = async (range: string, from?: string | null, to?
             .lean()
     ]);
 
+    // Ensure _id is a string for Client Components
+    const serializedRecentSales = recentSalesRaw.map((s: any) => ({
+        ...s,
+        _id: s._id.toString()
+    }));
+
+
     // Normalize Customers
     const normalizeMobile = (num: string) => num.replace(/^(\+91|91)/, '').replace(/\s/g, '');
     const customerMap: Record<string, {name: string, total: number, orders: number}> = {};
@@ -329,8 +345,9 @@ export const getSecondaryStats = async (range: string, from?: string | null, to?
     return {
         topCustomers: Object.values(customerMap).filter(c => c.orders > 1).sort((a,b) => b.total - a.total).slice(0, 5),
         topSellers: topSellersRaw.map((s: any) => ({ name: s._id, value: s.count, total: s.total })),
-        recentSales: recentSalesRaw
+        recentSales: serializedRecentSales
     };
+
 };
 
 // 6. Top Categories

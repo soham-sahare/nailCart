@@ -199,13 +199,14 @@ export async function GET(req: Request) {
              { $group: { _id: null, total: { $sum: '$value' } } }
           ],
           lowStock: [
-              { $match: { quantity: { $lte: 6 } } },
+              { $match: { $expr: { $lte: ['$quantity', { $ifNull: ['$lowStockThreshold', 10] }] } } },
               { $project: { name: 1, quantity: 1 } }
           ],
           lowStockCount: [
-              { $match: { quantity: { $lte: 6 } } },
+              { $match: { $expr: { $lte: ['$quantity', { $ifNull: ['$lowStockThreshold', 10] }] } } },
               { $count: 'count' }
           ],
+
           categoryBreakdown: [ 
              { $group: { _id: '$category', count: { $sum: 1 } } }
           ]

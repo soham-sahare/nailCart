@@ -91,13 +91,11 @@
 /* ... existing styles ... */
 
 .tableContainer {
-  border-radius: 0 0 1.5rem 1.5rem;
   overflow: hidden;
-  overflow-x: auto; /* Enable horizontal scrolling */
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  overflow-x: auto;
+  width: 100%;
 }
+
 
 .table {
   width: 100%;
@@ -130,12 +128,17 @@
 }
 
 .table td {
-  background: var(--background);
+  background: transparent;
+}
+
+.table tr {
+  transition: all 0.2s;
 }
 
 .table tr:hover td {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
 }
+
 
 .statusCompleted {
   background: rgba(34, 197, 94, 0.15);

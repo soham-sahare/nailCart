@@ -20,9 +20,8 @@ export default async function InvoicePage(props: {
     params: Promise<{ id: string }>;
     searchParams: Promise<{ mode?: string }>;
 }) {
-  const params = await props.params;
+  const { id } = await props.params;
   const searchParams = await props.searchParams;
-  const { id } = params;
   const mode = searchParams.mode;
   const isThermal = mode === 'thermal';
 
@@ -44,50 +43,47 @@ export default async function InvoicePage(props: {
 
   // --- Consolidated Logic ---
   let baseOrder = order;
-  let allReturns: any[] = [];
-
-  // If viewing a return, pull the original sale as base
+  
+  // 1. Identify Base Order and fetch all returns in parallel
   if (order.type === 'RETURN' && order.originalOrderId) {
       const original = await Order.findOne({ orderId: order.originalOrderId }).lean();
       if (original) baseOrder = original;
   }
 
-  // Pull all returns linked to the base order
-  allReturns = await Order.find({ 
+  const allReturns = await Order.find({ 
       originalOrderId: baseOrder.orderId, 
       type: 'RETURN',
       status: { $ne: 'CANCELLED' } 
   }).sort({ createdAt: 1 }).lean();
 
-  // Enrich base order items if needed
-  const enrichItems = async (targetOrder: any) => {
-      const needsEnrichment = targetOrder.items.some((item: any) => !item.mrp || !item.sku);
-      if (needsEnrichment) {
-          const productNames = targetOrder.items.map((i: any) => i.productName);
-          const products = await Product.find({ name: { $in: productNames } }).select('name mrp sku category').lean();
-          const productMap = new Map(products.map((p: any) => [p.name, p]));
+  // 2. Global Enrichment: Collect all unique product names from ALL orders
+  const allOrders = [baseOrder, ...allReturns];
+  const allProductNames = Array.from(new Set(
+      allOrders.flatMap(o => o.items.map((i: any) => i.productName))
+  ));
 
-          targetOrder.items = targetOrder.items.map((item: any) => {
-              const product = productMap.get(item.productName);
-              return {
-                  ...item,
-                  currentMrp: item.mrp || product?.mrp || item.price,
-                  sku: item.sku || product?.sku, 
-                  category: item.category || (product as any)?.category,
-              };
-          });
-      } else {
-          targetOrder.items = targetOrder.items.map((item: any) => ({
+
+  const products = await Product.find({ name: { $in: allProductNames } })
+      .select('name mrp sku category')
+      .lean();
+  
+  const productMap = new Map(products.map((p: any) => [p.name, p]));
+
+  // 3. Apply enrichment in a single pass
+  const enrich = (o: any) => {
+      o.items = o.items.map((item: any) => {
+          const product = productMap.get(item.productName);
+          return {
               ...item,
-              currentMrp: item.mrp || item.price,
-          }));
-      }
+              currentMrp: item.mrp || product?.mrp || item.price,
+              sku: item.sku || product?.sku,
+              category: item.category || (product as any)?.category,
+          };
+      });
   };
 
-  await enrichItems(baseOrder);
-  for (const ret of allReturns) {
-      await enrichItems(ret);
-  }
+  allOrders.forEach(enrich);
+
 
   const isReturned = order.type === 'RETURN' || order.status === 'RETURNED';
   const isRefundOnly = order.returnType === 'REFUND_ONLY';

@@ -100,14 +100,15 @@ const OrderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for Performance
-OrderSchema.index({ createdAt: -1 });
-// OrderSchema.index({ orderId: 1 }); // Removed: 'unique: true' already creates this index
+OrderSchema.index({ createdAt: -1, status: 1, type: 1 }); // Main Dashboard Filter & Sort
+OrderSchema.index({ customerName: 'text', orderId: 'text', mobileNumber: 'text' }); // Search optimization
 OrderSchema.index({ 'items.productName': 1 }); // For Top Products aggregation
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ customerName: 1 });
 OrderSchema.index({ mobileNumber: 1 });
 OrderSchema.index({ type: 1 });
 OrderSchema.index({ originalOrderId: 1 });
+
 
 // User Request Item 13 & 21: Compound & Partial Index for Analytics
 // This index specifically targets the main dashboard filter: Active Sales

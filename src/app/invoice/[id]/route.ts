@@ -6,7 +6,8 @@ import dbConnect from '@/lib/db';
 import '@/models/Category';
 import Order from '@/models/Order';
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type') || searchParams.get('mode') || 'a4'; // 'a4' or 'thermal'
