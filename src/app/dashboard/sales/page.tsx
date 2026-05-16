@@ -491,12 +491,16 @@ export default function SalesPage() {
 
             const data = await res.json();
             if (res.ok) {
+                const savedReturn = data.data;
                 const refundTotal = itemsToReturn.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                 showToast('success', 'Return Processed', 'Inventory updated and refund recorded.');
 
                 if (sendReturnWhatsapp && returnOrder.mobileNumber) {
                     const message = generateReturnWhatsappMessage(returnOrder, itemsToReturn, refundTotal);
                     window.open(`https://api.whatsapp.com/send?phone=91${returnOrder.mobileNumber}&text=${encodeURIComponent(message)}`, '_blank');
+                } else if (savedReturn) {
+                    // Automatically open the new return/refund invoice
+                    window.open(`/invoice/${savedReturn._id}`, '_blank');
                 }
 
                 handleCloseModal();
